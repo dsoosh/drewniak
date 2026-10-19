@@ -125,6 +125,10 @@ export async function makePdf(res, rep, state, img3d) {
   header('Dach: krokwie, łaty, arkusze pokrycia');
   await svgBox(roofSVG(res, state, { pal: P }), M, M + 6, PW - 2 * M, PH - 2 * M - 10);
   for (const id of [...WALL_IDS, ...state.partitions.map((p) => p.id)]) {
+    if (res.walls[id].sheetsIn?.length) {
+      header(`${res.walls[id].name}: od środka`);
+      await svgBox(elevationSVG(res, state, id, { pal: P, sheathing: true, inside: true }), M, M + 6, PW - 2 * M, PH - 2 * M - 10);
+    }
     header(`${res.walls[id].name}: szkielet i poszycie, widok z zewnątrz`);
     await svgBox(elevationSVG(res, state, id, { pal: P, sheathing: true }), M, M + 6, PW - 2 * M, PH - 2 * M - 10);
   }
@@ -184,7 +188,8 @@ export async function makePdf(res, rep, state, img3d) {
       x += cw + gap;
     });
   };
-  sheetPages(rep.wall, state.stock.osbWall, 'ściany');
+  sheetPages(rep.wall, state.stock.osbWall, 'ściany z zewnątrz');
+  sheetPages(rep.wallIn, state.stock.osbWall, 'od środka i ścianki');
   sheetPages(rep.floor, state.stock.osbFloor, 'podłoga');
 
   dbg('save');

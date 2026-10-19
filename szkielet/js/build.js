@@ -145,9 +145,20 @@ export function build(s) {
       const opt = { U0: def.Us[0], U1: def.Us[1], z0: zS, top, kinks: def.kinks, holes: holesOf(s.openings[id], zf) };
       const pieces = tileSheets(opt, SHEET_W, SHEET_H);
       def.gap = opt.dropped ? Math.max(...opt.dropped.map(([w, h]) => Math.min(w, h))) : 0;
-      pieces.forEach((p, i) => { p.label = `${id[0].toUpperCase()}${i + 1}`; p.wall = id; p.shape3d = { plane: def.plane, d: def.sheet, map: def.map }; });
+      pieces.forEach((p, i) => { p.label = `${id[0].toUpperCase()}${i + 1}`; p.wall = id; p.side = 'out'; p.shape3d = { plane: def.plane, d: def.sheet, map: def.map }; });
       out.wallSheets.push(...pieces);
       def.sheets = pieces;
+    }
+    if (s.walls.sheatheIn) {
+      // inner face, floor to top plate, between the inner faces of the adjoining walls
+      const innerY = { front: D, back: W - D }[id];
+      const topIn = def.flat ? (() => { const t = Math.min(def.top(), zr(innerY)); return () => t; })() : def.top;
+      const optIn = { U0: def.long ? D : def.A, U1: def.long ? L - D : def.B, z0: zf, top: topIn, kinks: def.kinks, holes: holesOf(s.openings[id], zf), uStart: def.Us[0], vStart: BEAM - s.walls.sheathBelow };
+      const dIn = def.depth[0] === 0 ? [D, D + st] : [def.depth[0] - st, def.depth[0]];
+      const pieces = tileSheets(optIn, SHEET_W, SHEET_H);
+      pieces.forEach((p, i) => { p.label = `${id[0].toUpperCase()}w${i + 1}`; p.wall = id; p.side = 'in'; p.shape3d = { plane: def.plane, d: dIn, map: def.map }; });
+      out.wallSheets.push(...pieces);
+      def.sheetsIn = pieces;
     }
   }
   // roof width carried by a bearing wall: half of the rafter spans on both sides
@@ -163,15 +174,16 @@ export function build(s) {
       def.tieZone = { us: tieX.map(([x0, x1]) => [x0 - p.a, x1 - p.a]), z0: Tf - 5, z1: Tf + D + 5 };
       if (p.Tp - 2 * T < Tf + D + 5) out.warnings.push(`${def.name}: oczep ściany nośnej wypada na wysokości ściągów – przesuń ścianę bliżej kalenicy.`);
     }
-    if (p.sheathe) def.seamBase = zf;
+    if (p.sheathe && p.sheathe !== 'none') def.seamBase = zf;
     frameWall(def, p.openings, extra[p.id], s, out);
-    if (p.sheathe) {
-      def.sheets = [];
+    if (p.sheathe && p.sheathe !== 'none') {
+      def.sheets = []; def.sheetsIn = [];
       for (const [side, d] of [['a', [def.depth[0] - st, def.depth[0]]], ['b', [def.depth[1], def.depth[1] + st]]]) {
+        if (p.sheathe !== 'both' && p.sheathe !== side) continue;
         const pieces = tileSheets({ U0: 0, U1: def.B, z0: zf, top: def.top, kinks: [], holes: holesOf(p.openings, zf) }, SHEET_W, SHEET_H);
-        pieces.forEach((q, k) => { q.label = `S${i + 1}${side}${k + 1}`; q.wall = p.id; q.shape3d = { plane: def.plane, d, map: def.map }; });
+        pieces.forEach((q, k) => { q.label = `S${i + 1}${side}${k + 1}`; q.wall = p.id; q.side = 'in'; q.face = side; q.shape3d = { plane: def.plane, d, map: def.map }; });
         out.wallSheets.push(...pieces);
-        if (side === 'a') def.sheets.push(...pieces);
+        (side === 'a' ? def.sheets : def.sheetsIn).push(...pieces);
       }
     }
   });
@@ -310,10 +322,8 @@ function frameWall(def, openings, extraStuds, s, out) {
   ops.sort((p, q) => p.o0 - q.o0);
   for (let i = 0; i < ops.length; i++) {
     const o = ops[i];
-    if (o.o0 - 2 * T < A + (def.long ? 2 * T : T) - 1 || o.o1 + 2 * T > B - (def.long ? 2 * T : T) + 1) out.warnings.push(`${name}: otwór ${i + 1} wchodzi na słupki narożne – odsuń go od narożnika.`);
-    if (i > 0 && ops[i - 1].o1 + 2 * T > o.o0 - 2 * T) out.warnings.push(`${name}: otwory ${i} i ${i + 1} są za blisko siebie (słupki się nakładają).`);
-    const hTop = o.ot + (o.w > 1200 ? D : 2 * T);
-    if (hTop > Math.min(ut(o.o0 - T), ut(o.o1 + T)) + 1) out.warnings.push(`${name}: nadproże otworu ${i + 1} nie mieści się pod oczepem – obniż otwór.`);
+    o.idx = i + 1;
+    if (i > 0 && ops[i - 1].o1 > o.o0 - T) out.warnings.push(`${name}: otwory ${i} i ${i + 1} są za blisko siebie – między nimi musi zmieścić się słupek.`);
   }
 
   // bottom plate, interrupted by openings that reach the floor
@@ -329,6 +339,7 @@ function frameWall(def, openings, extraStuds, s, out) {
   };
   take(A, 'end'); take(B - T, 'end');
   if (def.long) { take(A + T, 'end'); take(B - 2 * T, 'end'); }
+  if (def.long && s.walls.sheatheIn) { take(A + D, 'end'); take(B - D - T, 'end'); }
   for (const c of extraStuds || []) take(c - T / 2, 'extra');
   const grid = [];
   const s0 = def.Us[0], step = s.walls.studMax;
@@ -340,41 +351,112 @@ function frameWall(def, openings, extraStuds, s, out) {
     take(u0, 'grid');
   }
 
-  const zone = (u0) => ops.find((o) => u0 < o.o1 + 2 * T - 1 && u0 + T > o.o0 - 2 * T + 1);
+  // Opening layout. Below the threshold: one stud each side (an existing stud within 30 mm is
+  // reused, also the corner stud or the side stud of the neighbouring opening), header between
+  // the studs. The header hangs on screws into its end grain (~0.5 kN per layer each end,
+  // characteristic); above that it gets two angle brackets per end, and when even those are
+  // not enough, or for wide openings, the full stud + stud-under-header layout.
+  const REUSE = 30, SCREW_KN = 0.5, BRACKET_KN = 4;
+  const Ih = (layers) => layers * ((D * T ** 3) / 12);
+  const sideStuds = [];   // side studs created for openings, reusable by the next opening
+  for (const o of ops) {
+    const q = s.loads.roof * (def.trib || 0) / 1000;
+    const defl = (span, i) => (q > 0 ? (5 * q * span ** 4) / (384 * E * i) : 0);
+    o.reuse = [];
+    let single = o.w < (s.walls.doubleFrom ?? 1200);
+    if (single) {
+      const pool = [...full.map((x) => ({ x, u0: x.u0 })), ...sideStuds.map((u0) => ({ x: null, u0 }))];
+      const left = pool.find((c) => c.u0 + T <= o.o0 + 0.5 && c.u0 + T >= o.o0 - REUSE);
+      const right = pool.find((c) => c.u0 >= o.o1 - 0.5 && c.u0 <= o.o1 + REUSE);
+      o.leftU = left ? left.u0 : o.o0 - T;
+      o.rightU = right ? right.u0 : o.o1;
+      o.reuse = [left?.x, right?.x].filter(Boolean);
+      o.newSides = [left ? null : o.leftU, right ? null : o.rightU].filter((x) => x !== null);
+      const span = o.rightU - o.leftU;
+      const lim = span / 300, d1 = defl(span, Ih(1)), d2 = defl(span, Ih(2));
+      o.layers = d1 <= lim ? 1 : 2;
+      const reaction = (q * span) / 2 / 1000;   // kN at each end
+      if ((o.layers === 1 ? d1 : d2) > lim || reaction > BRACKET_KN) single = false;
+      else {
+        o.brackets = reaction > SCREW_KN * o.layers;
+        o.edge = false; o.hh = o.layers * T; o.span = span; o.d = o.layers === 1 ? d1 : d2; o.lim = lim;
+      }
+    }
+    o.single = single;
+    if (!single) {
+      o.reuse = [];
+      const span = o.w + T, lim = span / 300, dFlat = defl(span, Ih(2)), dEdge = defl(span, 2 * ((T * D ** 3) / 12));
+      o.edge = o.w > 1200 || dFlat > lim;
+      o.layers = 2; o.hh = o.edge ? D : 2 * T; o.span = span; o.d = o.edge ? dEdge : dFlat; o.lim = lim;
+    } else for (const u0 of o.newSides) sideStuds.push(u0);
+    if (q > 0) out.checks.push({ name: `Nadproże ${o.edge ? '2×45×95 na sztorc' : o.layers === 1 ? '45×95 płasko' : '2×45×95 płasko'}, ${name.toLowerCase()} ${o.w}`, span: R(o.span), d: o.d, lim: o.lim, ok: o.d <= o.lim, hint: 'węższy otwór albo nadproże z belki 100×100 lub klejonki' });
+    if (o.brackets) out.info.headerBrackets = (out.info.headerBrackets || 0) + 4;
+    const sideL = o.single ? o.leftU : o.o0 - 2 * T, sideR = o.single ? o.rightU + T : o.o1 + 2 * T;
+    if (!o.reuse.some((x) => x.kind === 'end') && (sideL < A + (def.long ? 2 * T : T) - 1 || sideR > B - (def.long ? 2 * T : T) + 1))
+      out.warnings.push(`${name}: otwór ${o.idx} wchodzi na słupki narożne – odsuń go od narożnika.`);
+    if (o.ot + o.hh > Math.min(ut(sideL), ut(sideR)) + 1) out.warnings.push(`${name}: nadproże otworu ${o.idx} nie mieści się pod oczepem – obniż otwór.`);
+    if (o.single) {
+      // a stud just inside the edge: suggest a shift only if the other edge stays clear
+      const inL = !o.reuse.length && full.find((x) => x.u0 + T > o.o0 && x.u0 + T <= o.o0 + REUSE);
+      const inR = full.find((x) => x.u0 < o.o1 && x.u0 >= o.o1 - REUSE);
+      const blocked = (lo, hi) => full.some((x) => x.u0 < hi && x.u0 + T > lo);
+      if (inL && o.leftU !== inL.u0) {
+        const d = Math.ceil(inL.u0 + T - o.o0);
+        out.warnings.push(blocked(o.o1, o.o1 + d) ? `${name}: otwór ${o.idx} zachodzi ${d} mm na słupek – zwęź go o ${d} mm, to słupek posłuży za bok.` : `${name}: otwór ${o.idx} zachodzi ${d} mm na słupek – przesuń go o ${d} mm w prawo, to słupek posłuży za bok.`);
+      } else if (inR && o.rightU !== inR.u0) {
+        const d = Math.ceil(o.o1 - inR.u0);
+        out.warnings.push(blocked(o.o0 - d, o.o0) ? `${name}: otwór ${o.idx} zachodzi ${d} mm na słupek – zwęź go o ${d} mm, to słupek posłuży za bok.` : `${name}: otwór ${o.idx} zachodzi ${d} mm na słupek – przesuń go o ${d} mm w lewo, to słupek posłuży za bok.`);
+      }
+    }
+  }
+  const zone = (f) => ops.find((o) => {
+    if (o.reuse.includes(f)) return false;
+    const z0 = o.single ? o.leftU : o.o0 - 2 * T, z1 = o.single ? o.rightU + T : o.o1 + 2 * T;
+    return f.u0 < z1 - 1 && f.u0 + T > z0 + 1;
+  });
   const verts = [];   // [u0,u1,v0,v1(min),topf] for nogging
   for (const f of full.sort((p, q) => p.u0 - q.u0)) {
-    const o = zone(f.u0);
+    const o = zone(f);
     if (o && f.kind === 'extra') out.warnings.push(`${name}: ścianka działowa dochodzi do otworu – przesuń ściankę albo otwór.`);
     if (o && f.kind !== 'end') continue;
     const tf = ut;
-    push('stud', 'f45', stud(f.u0, f.u0 + T, zb + T, tf), studLen(f.u0, f.u0 + T, zb + T, tf), f.kind === 'end' ? 'Słupek narożny' : 'Słupek', slopeNote);
+    push('stud', 'f45', stud(f.u0, f.u0 + T, zb + T, tf), studLen(f.u0, f.u0 + T, zb + T, tf), f.kind === 'end' ? 'Słupek narożny' : ops.some((o) => o.reuse.includes(f)) ? 'Słupek (bok otworu)' : 'Słupek', slopeNote);
     verts.push([f.u0, f.u0 + T, zb + T, tf]);
   }
   for (const o of ops) {
-    // header: two 45×95 laid flat when that is stiff enough and the opening ≤ 1200, else on edge with a 5 mm spacer
-    const span = o.w + T, q = s.loads.roof * (def.trib || 0) / 1000, lim = span / 300;
-    const dFlat = q > 0 ? (5 * q * span ** 4) / (384 * E * 2 * ((D * T ** 3) / 12)) : 0;
-    const dEdge = q > 0 ? (5 * q * span ** 4) / (384 * E * 2 * ((T * D ** 3) / 12)) : 0;
-    o.edge = o.w > 1200 || dFlat > lim;
-    o.hh = o.edge ? D : 2 * T;
-    if (q > 0) out.checks.push({ name: `Nadproże 2×45×95 ${o.edge ? 'na sztorc' : 'płasko'}, ${name.toLowerCase()} ${o.w}`, span: R(span), d: o.edge ? dEdge : dFlat, lim, ok: (o.edge ? dEdge : dFlat) <= lim, hint: 'węższy otwór albo nadproże z belki 100×100 lub klejonki' });
-    for (const u0 of [o.o0 - 2 * T, o.o1 + T]) {
-      push('king', 'f45', stud(u0, u0 + T, zb + T, ut), studLen(u0, u0 + T, zb + T, ut), 'Słupek przy otworze', slopeNote);
-      verts.push([u0, u0 + T, zb + T, ut]);
-    }
-    for (const u0 of [o.o0 - T, o.o1]) {
-      push('trimmer', 'f45', rect(u0, u0 + T, zb + T, o.ot), o.ot - zb - T, 'Słupek pod nadprożem');
-      verts.push([u0, u0 + T, zb + T, () => o.ot]);
-    }
-    if (o.edge) {
-      push('header', 'f45', rect(o.o0 - T, o.o1 + T, o.ot, o.ot + D), o.w + 2 * T, 'Nadproże', 'na sztorc, 2 szt. z przekładką 5 mm', [0, T]);
-      push('header', 'f45', rect(o.o0 - T, o.o1 + T, o.ot, o.ot + D), o.w + 2 * T, 'Nadproże', 'na sztorc, 2 szt. z przekładką 5 mm', [D - T, D]);
+    let h0, h1, inside;
+    if (o.single) {
+      for (const u0 of o.newSides) {
+        if (verts.some((v) => Math.abs(v[0] - u0) < 1)) continue;
+        push('king', 'f45', stud(u0, u0 + T, zb + T, ut), studLen(u0, u0 + T, zb + T, ut), 'Słupek przy otworze', [slopeNote, o.type === 'door' ? 'ościeżnicę kotwić co ≤ 50 cm' : ''].filter(Boolean).join(', '));
+        verts.push([u0, u0 + T, zb + T, ut]);
+      }
+      h0 = o.leftU + T; h1 = o.rightU;
+      for (let k = 0; k < o.layers; k++)
+        push('header', 'f45', rect(h0, h1, o.ot + k * T, o.ot + (k + 1) * T), h1 - h0, o.layers === 1 ? 'Nadproże' : k ? 'Nadproże (górna warstwa)' : 'Nadproże (dolna warstwa)', o.brackets ? 'płasko, między słupkami, 2 kątowniki na koniec' : 'płasko, między słupkami');
+      if (o.sill > 0) push('sill', 'f45', rect(h0, h1, o.ob - T, o.ob), h1 - h0, 'Podokiennik', 'płasko, między słupkami');
+      inside = [h0, h1];
     } else {
-      push('header', 'f45', rect(o.o0 - T, o.o1 + T, o.ot, o.ot + T), o.w + 2 * T, 'Nadproże (dolna warstwa)', 'płasko');
-      push('header', 'f45', rect(o.o0 - T, o.o1 + T, o.ot + T, o.ot + 2 * T), o.w + 2 * T, 'Nadproże (górna warstwa)', 'płasko');
+      for (const u0 of [o.o0 - 2 * T, o.o1 + T]) {
+        push('king', 'f45', stud(u0, u0 + T, zb + T, ut), studLen(u0, u0 + T, zb + T, ut), 'Słupek przy otworze', slopeNote);
+        verts.push([u0, u0 + T, zb + T, ut]);
+      }
+      for (const u0 of [o.o0 - T, o.o1]) {
+        push('trimmer', 'f45', rect(u0, u0 + T, zb + T, o.ot), o.ot - zb - T, 'Słupek pod nadprożem');
+        verts.push([u0, u0 + T, zb + T, () => o.ot]);
+      }
+      if (o.edge) {
+        push('header', 'f45', rect(o.o0 - T, o.o1 + T, o.ot, o.ot + D), o.w + 2 * T, 'Nadproże', 'na sztorc, 2 szt. z przekładką 5 mm', [0, T]);
+        push('header', 'f45', rect(o.o0 - T, o.o1 + T, o.ot, o.ot + D), o.w + 2 * T, 'Nadproże', 'na sztorc, 2 szt. z przekładką 5 mm', [D - T, D]);
+      } else {
+        push('header', 'f45', rect(o.o0 - T, o.o1 + T, o.ot, o.ot + T), o.w + 2 * T, 'Nadproże (dolna warstwa)', 'płasko');
+        push('header', 'f45', rect(o.o0 - T, o.o1 + T, o.ot + T, o.ot + 2 * T), o.w + 2 * T, 'Nadproże (górna warstwa)', 'płasko');
+      }
+      if (o.sill > 0) push('sill', 'f45', rect(o.o0, o.o1, o.ob - T, o.ob), o.w, 'Podokiennik', 'płasko');
+      inside = [o.o0, o.o1];
     }
-    if (o.sill > 0) push('sill', 'f45', rect(o.o0, o.o1, o.ob - T, o.ob), o.w, 'Podokiennik', 'płasko');
-    const inner = grid.map((g) => g - T / 2).filter((u0) => u0 >= o.o0 + 1 && u0 + T <= o.o1 - 1);
+    o.bay = o.single ? [o.leftU, o.rightU + T] : [o.o0 - T, o.o1 + T];
+    const inner = grid.map((g) => g - T / 2).filter((u0) => u0 >= inside[0] + 1 && u0 + T <= inside[1] - 1);
     for (const u0 of inner) {
       const top0 = o.ot + o.hh;
       if (Math.min(ut(u0), ut(u0 + T)) - top0 > 30) { push('cripple', 'f45', stud(u0, u0 + T, top0, ut), studLen(u0, u0 + T, top0, ut), 'Słupek nad nadprożem', slopeNote); verts.push([u0, u0 + T, top0, ut]); }
@@ -428,7 +510,11 @@ function frameWall(def, openings, extraStuds, s, out) {
       // staggered rows alternate above and below the line; a sheet-seam row stays in line
       const z = z0 + (s.walls.nogStagger && !seams.has(z0) ? (bay++ % 2 ? T / 2 + 5 : -T / 2 - 5) : 0);
       const um = (u0 + u1) / 2;
-      if (ops.some((o) => um > o.o0 - T && um < o.o1 + T && z + T / 2 > o.ob - T - 5 && z - T / 2 < o.ot + o.hh + 5)) continue;
+      if (ops.some((o) => {
+        if (!(um > o.bay[0] && um < o.bay[1])) return false;
+        const lo = o.sill > 0 ? o.ob - T : o.ob, hi = o.ot + o.hh;
+        return seams.has(z0) ? z0 > lo + 10 && z0 < hi - 10 : z + T / 2 > lo - REUSE && z - T / 2 < hi + REUSE;
+      })) continue;
       if (z + T / 2 > Math.min(ut(u0), ut(u1)) - 5) continue;
       if (def.tieZone && z + T / 2 > def.tieZone.z0 && z - T / 2 < def.tieZone.z1) continue;
       push('nog', 'f45', rect(u0, u1, z - T / 2, z + T / 2), u1 - u0, 'Rygiel', '95 w głąb ściany, licem ze słupkami');
@@ -445,8 +531,12 @@ export function tileSheets(o, w, h) {
   const { U0, U1, z0, top, kinks, holes } = o;
   const zMax = Math.max(top(U0), top(U1), ...kinks.map(top));
   const pieces = [];
-  for (let u = U0; u < U1 - 1; u += w) for (let v = z0; v < zMax - 1; v += h) {
-    const x0 = u, x1 = Math.min(U1, u + w), y0 = v, y1 = v + h;
+  // columns and rows may start on an outer grid (uStart / vStart) so seams line up with studs
+  const u00 = o.uStart !== undefined ? o.uStart + Math.floor((U0 - o.uStart) / w + EPS) * w : U0;
+  const v00 = o.vStart !== undefined ? o.vStart + Math.floor((z0 - o.vStart) / h + EPS) * h : z0;
+  for (let u = u00; u < U1 - 1; u += w) for (let v = v00; v < zMax - 1; v += h) {
+    const x0 = Math.max(U0, u), x1 = Math.min(U1, u + w), y0 = Math.max(z0, v), y1 = v + h;
+    if (x1 - x0 < 1 || y1 - y0 < 1) continue;
     const xs = [...new Set([x0, x1, ...holes.flatMap((H) => [H.u0, H.u1]), ...kinks].filter((x) => x >= x0 && x <= x1))].sort((p, q) => p - q);
     const ys = [...new Set([y0, y1, ...holes.flatMap((H) => [H.v0, H.v1])].filter((y) => y >= y0 && y <= y1))].sort((p, q) => p - q);
     const cells = new Map();

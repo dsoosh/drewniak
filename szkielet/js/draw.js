@@ -95,7 +95,7 @@ export function elevationSVG(res, state, id, opt) {
   const padL = fs * 15, padR = fs * 6 + 260, padT = fs * 3, padB = fs * 4.2;
   const vb = [minU - padL, -zTop - padT, maxU - minU + padL + padR, zTop + padT + padB];
   const M = ([u, z]) => [u, -z];
-  let s = svgOpen(vb[0], vb[1], vb[2], vb[3], P, opt.interactive ? `data-view="wall" data-id="${id}"` : '');
+  let s = '';
   s += `<line x1="${f(vb[0])}" y1="0" x2="${f(vb[0] + vb[2])}" y2="0" stroke="${P.muted}" stroke-width="${f(fs / 10)}"/>`;
   if (!isPart) {
     s += poly([[U0, 0], [U1, 0], [U1, 100], [U0, 100]], M, `fill="${P.beam}" stroke="${P.ink}" stroke-width="1.5" vector-effect="non-scaling-stroke"`);
@@ -108,8 +108,9 @@ export function elevationSVG(res, state, id, opt) {
   const order = ['plate', 'stud', 'king', 'trimmer', 'cripple', 'nog', 'sill', 'header'];
   for (const k of order) for (const m of members.filter((x) => x.kind === k))
     s += poly(m.upoly, M, `fill="${P[KIND_COLOR[k]]}" stroke="${P.ink}" stroke-width="1" vector-effect="non-scaling-stroke"`);
-  if (opt.sheathing && def.sheets) {
-    for (const p of def.sheets) {
+  const sheetList = opt.inside ? def.sheetsIn : def.sheets;
+  if (opt.sheathing && sheetList) {
+    for (const p of sheetList) {
       for (const c of p.cells) s += poly(c.poly, M, `fill="${P.sheet}" fill-opacity="0.55" stroke="none"`);
       for (const c of p.cells) for (const [a, b] of c.edges) s += `<line x1="${f(a[0])}" y1="${f(-a[1])}" x2="${f(b[0])}" y2="${f(-b[1])}" stroke="${P.ink}" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
       const cell = p.cells.reduce((m, c) => ((c.x1 - c.x0) * (c.y1 - c.y0) > (m.x1 - m.x0) * (m.y1 - m.y0) ? c : m), p.cells[0]);
@@ -153,9 +154,17 @@ export function elevationSVG(res, state, id, opt) {
   s += dimV(minU - fs * 1.6, -zf, -topL, `${fmt(topL - zf)}`, P, fs);
   if (Math.abs(topR - topL) > 1) s += dimV(maxU + fs * 5, -zf, -topR, `${fmt(topR - zf)}`, P, fs);
   if (!isPart) s += dimV(minU - fs * 6.5, 0, -topL, `${fmt(topL)} od gruntu`, P, fs);
-  s += banana(U1 + 60, 0, P);
-  s += '</svg>';
-  return s;
+  if (opt.inside) s += banana(def.A + (def.B - def.A) * 0.12, -zf, P);
+  else s += banana(U1 + 60, 0, P);
+  const extra = opt.interactive ? `data-view="wall" data-id="${id}"` : '';
+  if (!opt.inside) return svgOpen(vb[0], vb[1], vb[2], vb[3], P, extra) + s + '</svg>';
+  // inside view: mirror the whole drawing about the wall centre, then un-mirror every label
+  const C = U0 + U1;
+  const texts = s.replace(/<text ([^>]*?)x="(-?[\d.]+)"([^>]*)>/g, (m, a, x, b) => {
+    const attrs = (a + 'x="' + x + '"' + b).replace(/text-anchor="(end|start)"/, (q, w) => `text-anchor="${w === 'end' ? 'start' : 'end'}"`);
+    return `<text ${attrs} transform="matrix(-1 0 0 1 ${f(2 * +x)} 0)">`;
+  });
+  return svgOpen(C - (vb[0] + vb[2]), vb[1], vb[2], vb[3], P, extra + ' data-inside="1"') + `<g transform="matrix(-1 0 0 1 ${f(C)} 0)">` + texts + '</g></svg>';
 }
 
 // ---------- floor plan ----------

@@ -72,7 +72,8 @@ export class View3D {
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(L + 6000, W + 6000), new THREE.MeshLambertMaterial({ color: 0x9aa58f }));
     ground.position.set(L / 2, W / 2, -2);
     grp('ground').add(ground);
-    grp('ground').add(bananaMesh(L + 350, -250));
+    grp('ground').add(bananaMesh(L + 350, -250, 0));
+    grp('ground').add(bananaMesh(L * 0.3, W * 0.35, res.info.zf));
     for (const [k, g] of Object.entries(this.groups)) { g.visible = k === 'ground' || this.vis[k] !== false; this.scene.add(g); }
     if (this.first) { this.home(res, state); this.first = false; }
   }
@@ -111,7 +112,7 @@ function extrude(sh) {
   return geo;
 }
 
-function bananaMesh(x, y) {
+function bananaMesh(x, y, z) {
   const g = new THREE.Group();
   const curve = new THREE.CatmullRomCurve3([[0, 0, 40], [50, 18, 22], [100, 22, 18], [150, 12, 24], [185, -8, 46]].map((p) => new THREE.Vector3(...p)));
   const tube = new THREE.TubeGeometry(curve, 40, 17, 10, false);
@@ -128,7 +129,7 @@ function bananaMesh(x, y) {
   const stem = new THREE.Mesh(new THREE.CylinderGeometry(4, 5, 22, 6), new THREE.MeshLambertMaterial({ color: 0x6b5a2a }));
   stem.position.set(192, -14, 52); stem.rotation.z = 0.9;
   g.add(stem);
-  g.position.set(x, y, 0);
+  g.position.set(x, y, z);
   g.rotation.z = 0.5;
   return g;
 }

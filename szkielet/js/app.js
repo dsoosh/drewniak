@@ -11,7 +11,8 @@ const fmt = (n) => R(n).toLocaleString('pl-PL').replace(/ /g, ' ');
 
 let state = loadInitial();
 let res = null, rep = null, view3d = null;
-const ui = { tab: '3d', wall: 'front', selOp: null, selPart: null, showSheets: true };
+const ui = { tab: '3d', wall: 'front', selOp: null, selPart: null, showSheets: true, inside: false };
+const T2 = 22.5;   // half the stud thickness
 
 // ---------- form ----------
 
@@ -37,6 +38,8 @@ const FIELDS = [
     ['walls.nogStagger', 'Rygle na mijankę', 'chk'],
     ['walls.sheathe', 'Poszycie OSB z zewnątrz', 'chk'],
     ['walls.sheathBelow', 'Płyta zachodzi na ramę', 'num', { step: 5, show: (s) => s.walls.sheathe }],
+    ['walls.sheatheIn', 'Poszycie OSB od środka', 'chk'],
+    ['walls.doubleFrom', 'Podwójne słupki przy otworach od', 'num', { step: 10, note: 'węższe otwory: jeden słupek z każdej strony (także słupek z siatki), nadproże między nimi' }],
   ]],
   ['Rama i podłoga', [
     ['base.maxSpan', 'Belki poprzeczne – maks. rozstaw', 'num', { step: 10 }],
@@ -57,7 +60,6 @@ const FIELDS = [
     ['stock.f45.len', 'Kantówka 45×95 – długość', 'num', { step: 100 }],
     ['stock.l50.len', 'Łata 50×50 – długość', 'num', { step: 100 }],
     ['stock.b100.len', 'Belka 100×100 – długość', 'num', { step: 100, note: 'skład tnie belki 13 m na pół – sprzedaje po 6,5 m' }],
-    ['kerf', 'Rzaz piły', 'num', { step: 1 }],
     ['stock.f45.price', 'Cena 45×95 [zł/szt.]', 'num', { step: 0.01, opt: true }],
     ['stock.l50.price', 'Cena łaty [zł/szt.]', 'num', { step: 0.01, opt: true }],
     ['stock.b100.price', 'Cena 100×100 [zł/szt.]', 'num', { step: 0.01, opt: true }],
@@ -167,6 +169,7 @@ function renderOrder() {
   const col = { b100: 'var(--c-beam)', f45: 'var(--c-stud)', l50: 'var(--c-batten)' };
   for (const t of rep.timber) cards.push(card(t.count, 'szt.', `${t.name} × ${fmt(t.stock)}`, `${t.pieces} elementów, odpad ${(t.waste / 1000).toFixed(1).replace('.', ',')} m`, col[t.sec]));
   if (rep.wall) cards.push(card(rep.wall.count, 'płyt', `${rep.wall.name} na ściany`, `${rep.wall.area.toFixed(1).replace('.', ',')} m² po docięciu`, 'var(--c-sheet)'));
+  if (rep.wallIn) cards.push(card(rep.wallIn.count, 'płyt', `${rep.wallIn.name} od środka i ścianki`, `${rep.wallIn.area.toFixed(1).replace('.', ',')} m² po docięciu`, 'var(--c-sheet)'));
   cards.push(card(rep.floor.count, 'płyt', rep.floor.name, `podłoga ${rep.floor.area.toFixed(1).replace('.', ',')} m²`, 'var(--c-floor)'));
   for (const c of rep.cover) cards.push(card(c.count, 'arkuszy', c.name, `${state.roof.cover.len}×${state.roof.cover.wid}`, c.clear ? 'var(--c-clear)' : 'var(--c-cover)'));
   for (const e of rep.extras) cards.push(card(e.qty, e.unit, e.name, '', 'var(--muted)'));
@@ -185,7 +188,8 @@ function renderTab() {
     if (!res.walls[ui.wall]) ui.wall = 'front';
     $('wallChips').innerHTML = [...WALL_IDS.map((id) => [id, WALL_NAMES[id]]), ...state.partitions.map((p, i) => [p.id, res.walls[p.id]?.name || `Ścianka ${i + 1}`])]
       .map(([id, n]) => `<button data-wall="${id}" aria-pressed="${id === ui.wall}">${n}</button>`).join('');
-    $('wallView').innerHTML = elevationSVG(res, state, ui.wall, { pal: P, interactive: true, sheathing: ui.showSheets, selected: ui.selOp });
+    document.querySelectorAll('[data-face]').forEach((b) => b.setAttribute('aria-pressed', String((b.dataset.face === 'in') === ui.inside)));
+    $('wallView').innerHTML = elevationSVG(res, state, ui.wall, { pal: P, interactive: true, sheathing: ui.showSheets, selected: ui.selOp, inside: ui.inside });
     renderOpPanel();
   }
   if (ui.tab === 'roof') $('roofView').innerHTML = roofSVG(res, state, { pal: P, interactive: true });
@@ -246,12 +250,12 @@ function renderPartPanel() {
 <label>Do<input id="pp-b" type="number" step="5" value="${R(p.b)}"></label>
 <label>Wysokość${p.bearing ? ' (z dachu)' : ''}<input id="pp-h" type="number" step="5" value="${p.bearing ? hEff : p.h}" ${p.bearing ? 'disabled' : ''}></label>
 ${p.orient === 'x' ? `<label class="chk" style="flex-direction:row"><input id="pp-bear" type="checkbox" ${p.bearing ? 'checked' : ''}> nośna (pod krokwie)</label>` : ''}
-<label class="chk" style="flex-direction:row"><input id="pp-sh" type="checkbox" ${p.sheathe ? 'checked' : ''}> OSB obustronnie</label>
+<label>Poszycie OSB<select id="pp-sh">${[['none', 'brak'], ['a', p.orient === 'x' ? 'od przodu' : 'od lewej'], ['b', p.orient === 'x' ? 'od tyłu' : 'od prawej'], ['both', 'obie strony']].map(([v, t]) => `<option value="${v}" ${p.sheathe === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
 <button id="pp-ops">Otwory w ściance</button>
 <button class="danger" id="pp-del">Usuń</button>`;
   for (const k of ['c', 'a', 'b', 'h']) { const el = $(`pp-${k}`); typed(el, () => { const v = Number(el.value); if (Number.isFinite(v) && p[k] !== v) { p[k] = v; changed(); } }); }
   $('pp-bear')?.addEventListener('change', (e) => { p.bearing = e.target.checked; changed(); });
-  $('pp-sh').addEventListener('change', (e) => { p.sheathe = e.target.checked; changed(); });
+  $('pp-sh').addEventListener('change', (e) => { p.sheathe = e.target.value; changed(); });
   $('pp-ops').addEventListener('click', () => { ui.tab = 'walls'; ui.wall = p.id; ui.selOp = null; renderTab(); });
   $('pp-del').addEventListener('click', () => { state.partitions.splice(i, 1); ui.selPart = null; changed(); });
 }
@@ -300,7 +304,7 @@ export function sheetSVG(sh, st, P) {
 function renderSheets() {
   const P = palette();
   const part = (pk, st, title) => pk ? `<h3>${title}: ${pk.count} × ${pk.name}</h3><div class="sheetgrid">${pk.sheets.map((sh, i) => `<figure>${sheetSVG(sh, st, P)}<figcaption>${i + 1}. ${sh.items.map((it) => `${it.label} ${R(it.w)}×${R(it.h)}`).join(', ')}</figcaption></figure>`).join('')}</div>` : '';
-  $('sheets').innerHTML = `<h2>Rozkrój płyt</h2>${part(rep.wall, state.stock.osbWall, 'Ściany')}${part(rep.floor, state.stock.osbFloor, 'Podłoga')}`;
+  $('sheets').innerHTML = `<h2>Rozkrój płyt</h2>${part(rep.wall, state.stock.osbWall, 'Ściany z zewnątrz')}${part(rep.wallIn, state.stock.osbWall, 'Od środka i ścianki')}${part(rep.floor, state.stock.osbFloor, 'Podłoga')}`;
 }
 
 // ---------- editing on drawings ----------
@@ -313,6 +317,7 @@ function bindEditing() {
   document.querySelector('.tabs').addEventListener('click', (e) => { const t = e.target.dataset.tab; if (t) { ui.tab = t; renderTab(); } });
   $('wallChips').addEventListener('click', (e) => { const w = e.target.dataset.wall; if (w) { ui.wall = w; ui.selOp = null; renderTab(); } });
   $('showSheets').addEventListener('change', (e) => { ui.showSheets = e.target.checked; renderTab(); });
+  $('faceSeg').addEventListener('click', (e) => { const f = e.target.dataset.face; if (f) { ui.inside = f === 'in'; renderTab(); } });
   document.querySelectorAll('[data-add]').forEach((b) => b.addEventListener('click', () => addOpening(b.dataset.add)));
 
   const wv = $('wallView');
@@ -332,9 +337,18 @@ function bindEditing() {
   wv.addEventListener('pointermove', (e) => {
     if (drag?.kind !== 'op') return;
     const svg = wv.querySelector('svg'), p = svgPt(svg, e);
-    const dx = snap(p.x - drag.x0), dz = snap(drag.y0 - p.y), o = drag.o, g = drag.orig;
+    const dx = snap((p.x - drag.x0) * (ui.inside ? -1 : 1)), dz = snap(drag.y0 - p.y), o = drag.o, g = drag.orig;
     const def = res.walls[ui.wall], minU = def.A + (def.long ? 90 : 45) + 90, maxU = (w) => def.B - (def.long ? 90 : 45) - 90 - w;
-    if (drag.mode === 'move') { o.U = Math.min(maxU(o.w), Math.max(minU, g.U + dx)); if (o.sill > 0) o.sill = Math.max(100, g.sill + dz); }
+    if (drag.mode === 'move') {
+      o.U = Math.min(maxU(o.w), Math.max(minU, g.U + dx));
+      // snap an edge to the face of a grid stud within 30 mm, so the stud can be the side of the opening
+      const step = state.walls.studMax, g0 = def.Us[0];
+      const k0 = Math.round((o.U - T2 - g0) / step), k1 = Math.round((o.U + o.w + T2 - g0) / step);
+      const faceL = g0 + k0 * step + T2, faceR = g0 + k1 * step - T2;
+      if (Math.abs(o.U - faceL) <= 30 && faceL >= minU) o.U = Math.ceil(faceL);
+      else if (Math.abs(o.U + o.w - faceR) <= 30 && faceR - o.w <= maxU(o.w)) o.U = Math.floor(faceR - o.w);
+      if (o.sill > 0) o.sill = Math.max(100, g.sill + dz);
+    }
     if (drag.mode === 'l') { const U = Math.min(g.U + g.w - 300, Math.max(minU, g.U + dx)); o.w = g.w + g.U - U; o.U = U; }
     if (drag.mode === 'r') o.w = Math.max(300, Math.min(maxU(0) - g.U, g.w + dx));
     if (drag.mode === 't') o.h = Math.max(300, g.h + dz);

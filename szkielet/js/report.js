@@ -26,7 +26,9 @@ export function report(res, s) {
     const sheets = [...fullOnes.map((p) => ({ items: [{ x: 0, y: 0, w: st.w, h: st.h, label: p.label }] })), ...pk.sheets];
     return { name: st.name, count: sheets.length, sheets, area: pieces.reduce((t, p) => t + p.area, 0) / 1e6, tooBig: pk.tooBig };
   };
-  if (res.wallSheets.length) { out.wall = sheetPack(res.wallSheets, s.stock.osbWall); addCost(out.wall.count, s.stock.osbWall.price); }
+  const outer = res.wallSheets.filter((p) => p.side !== 'in'), inner = res.wallSheets.filter((p) => p.side === 'in');
+  if (outer.length) { out.wall = sheetPack(outer, s.stock.osbWall); addCost(out.wall.count, s.stock.osbWall.price); }
+  if (inner.length) { out.wallIn = sheetPack(inner, s.stock.osbWall); addCost(out.wallIn.count, s.stock.osbWall.price); }
   out.floor = sheetPack(res.floorSheets, { ...s.stock.osbFloor, name: `OSB/3 ${s.floor.sheetT} mm pióro-wpust` });
   addCost(out.floor.count, s.stock.osbFloor.price);
 
@@ -56,10 +58,11 @@ export function report(res, s) {
   const rafterLines = res.info.rafterX.length;
   out.extras.push({ name: 'Łączniki krokwiowe (krokiew–oczep)', qty: rafters * 2 - (s.roof.type === 'gable' ? rafters : 0) + bearing.length * rafterLines, unit: 'szt.' });
   if (bearing.length) out.extras.push({ name: 'Kotwy podwaliny ściany nośnej do legarów', qty: bearing.reduce((t, p) => t + Math.ceil((p.b - p.a) / 1200) + 1, 0), unit: 'szt.' });
+  if (res.info.headerBrackets) out.extras.push({ name: 'Kątowniki pod nadproża między słupkami', qty: res.info.headerBrackets, unit: 'szt.' });
   if (res.info.rafterSplices) out.extras.push({ name: 'Nakładki na styk krokwi + śruby M12', qty: res.info.rafterSplices, unit: 'kpl.' });
   if (s.roof.type === 'gable') out.extras.push({ name: 'Nakładki kalenicowe (para krokwi)', qty: rafters, unit: 'szt.' });
   else out.extras.push({ name: 'Obróbka górnej krawędzi dachu', qty: (res.roof.Lr / 1000).toFixed(1).replace('.', ','), unit: 'm' });
-  const osb = (out.wall?.count || 0) + out.floor.count;
+  const osb = (out.wall?.count || 0) + (out.wallIn?.count || 0) + out.floor.count;
   out.extras.push({ name: 'Gwoździe lub wkręty do OSB (co 150 / 300 mm)', qty: Math.ceil((osb * 60) / 50) * 50, unit: 'szt.' });
   out.extras.push({ name: 'Impregnat do czół po cięciu', qty: 1, unit: 'l' });
   return out;

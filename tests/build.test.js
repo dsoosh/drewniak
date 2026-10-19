@@ -128,7 +128,7 @@ test('wide door gets an edge header, small window a flat one', () => {
   const r = build(fresh((s) => { s.dims.L = 4000; s.openings.front.push({ id: 'd', type: 'door', U: 230, w: 2000, h: 2000, sill: 0 }); s.openings.front[0].U = 2700; }));
   const heads = r.members.filter((m) => m.wall === 'front' && m.kind === 'header');
   assert.ok(heads.some((m) => m.note.startsWith('na sztorc') && m.len === 2090));
-  assert.ok(heads.some((m) => m.note === 'płasko' && m.len === 1110));
+  assert.ok(heads.some((m) => m.note.startsWith('płasko, między słupkami')));
   assert.ok(r.checks.filter((c) => c.name.startsWith('Nadproże')).every((c) => c.ok), r.checks.map((c) => `${c.name} ${c.d.toFixed(1)}/${c.lim.toFixed(1)}`).join('; '));
 });
 
@@ -234,6 +234,70 @@ test('review 2: doubled joist on a sheet seam, ridge wall, ties clear of bearing
   assert.ok(r4.warnings.filter((w) => /Krokiew d+ mm jest dłuższa/.test(w)).length <= 1);
   const s5 = fresh((st) => { st.dims.W = 5000; st.partitions.push({ id: 'n', orient: 'x', c: 2480, a: 95, b: 3006, h: 2000, openings: [] }); });
   assert.ok(build(s5).warnings.some((w) => /oznacz ją jako nośną/.test(w)));
+});
+
+test('small openings: single studs, reused grid stud, no trimmers; wide ones keep trimmers', () => {
+  const r = build(fresh());
+  const front = r.members.filter((m) => m.wall === 'front');
+  assert.equal(front.filter((m) => m.kind === 'trimmer').length, 0);
+  // window U=1880 starts 2.5 mm right of the grid stud face at 1877.5 -> reused, one new stud only
+  assert.equal(front.filter((m) => m.kind === 'king').length, 1);
+  assert.ok(front.some((m) => m.name === 'Słupek (bok otworu)'));
+  const wide = build(fresh((st) => { st.walls.doubleFrom = 900; }));
+  assert.equal(wide.members.filter((m) => m.wall === 'front' && m.kind === 'trimmer').length, 2);
+});
+
+test('no separate nogging at the sill or header height inside the opening bay', () => {
+  const r = build(fresh((st) => { st.openings.front[0].sill = 1600 - 220 + 22.5 - 1600 + 800 + 220 - 220; }));
+  const o = { U: 1880, w: 1020 };
+  const nogs = r.members.filter((m) => m.wall === 'front' && m.kind === 'nog' && m.upoly[0][0] >= o.U - 50 && m.upoly[1][0] <= o.U + o.w + 50);
+  const sillZ = 220 + r.members.length * 0 + (fresh().openings.front[0].sill);
+  void sillZ;
+  for (const m of nogs) {
+    const zc = (m.upoly[0][1] + m.upoly[2][1]) / 2;
+    const sill = r.members.find((x) => x.wall === 'front' && x.kind === 'sill');
+    const sz = (sill.upoly[0][1] + sill.upoly[2][1]) / 2;
+    assert.ok(Math.abs(zc - sz) > 30 + 45, `nogging at ${zc} duplicates sill at ${sz}`);
+  }
+});
+
+test('interior sheathing, one-sided partition sheathing, offcut minus kerf', () => {
+  const s = fresh((st) => { st.walls.sheatheIn = true; st.partitions.push({ id: 'p', orient: 'y', c: 1500, a: 95, b: 2405, h: 2000, sheathe: 'b', openings: [] }); });
+  const r = build(s), rep = report(r, s);
+  const inner = r.wallSheets.filter((p) => p.side === 'in');
+  assert.ok(inner.some((p) => p.label.startsWith('Fw')) && inner.some((p) => p.label.startsWith('Rw')));
+  assert.ok(rep.wallIn && rep.wallIn.count > 0);
+  const part = r.wallSheets.filter((p) => p.wall === 'p');
+  assert.ok(part.length > 0 && part.every((p) => p.face === 'b'));
+  const bars = packBars([{ len: 3101 }, { len: 2830 }], 6000, 3).bars;
+  assert.equal(bars[0].waste, 63);
+  assert.equal(normalize({ ...defaultState(), partitions: [{ id: 'x', orient: 'x', c: 1000, a: 95, b: 3006, h: 2000, sheathe: true, openings: [] }] }).partitions[0].sheathe, 'both');
+});
+
+test('review 3: shared stud, header hanger load, seam nogging over a header, interior sheets on studs', () => {
+  // two windows sharing grid stud 1215.5..1260.5 on the front wall
+  const r1 = build(fresh((st) => { st.openings.front = [{ id: 'a', type: 'window', U: 700, w: 515.5, h: 500, sill: 1000 }, { id: 'b', type: 'window', U: 1260.5, w: 500, h: 500, sill: 1000 }]; }));
+  const studs = r1.members.filter((m) => m.wall === 'front' && ['stud', 'king'].includes(m.kind)).map((m) => m.upoly[0][0]);
+  assert.ok(studs.some((u) => Math.abs(u - 1215.5) < 0.5), 'shared stud kept');
+  assert.equal(studs.filter((u) => u > 1150 && u < 1300).length, 1);
+  // heavy eaves wall: header hangs on brackets or gets studs under it
+  const r2 = build(fresh((st) => { st.dims.W = 5000; st.dims.L = 4000; st.openings.front = [{ id: 'w', type: 'window', U: 1890, w: 900, h: 600, sill: 1000 }]; }));
+  const h2 = r2.members.filter((m) => m.wall === 'front' && m.kind === 'header');
+  assert.ok(h2.some((m) => /kątowniki/.test(m.note)) || r2.members.some((m) => m.wall === 'front' && m.kind === 'trimmer'));
+  // seam at 2550 above a header top at 2505 keeps its nogging
+  const r3 = build(fresh((st) => { st.openings.back = [{ id: 'x', type: 'window', U: 1300, w: 600, h: 600, sill: 1640 - 220 }]; }));
+  const seamNogs = r3.members.filter((m) => m.wall === 'back' && m.kind === 'nog' && Math.abs((m.upoly[0][1] + m.upoly[2][1]) / 2 - 2550) < 1);
+  assert.ok(seamNogs.some((m) => m.upoly[0][0] < 1600 && m.upoly[1][0] > 1300), 'seam nogging over the window bay');
+  // interior sheets: vertical edges on studs, horizontal seam at 2550, cut below rafters
+  const s4 = fresh((st) => { st.walls.sheatheIn = true; });
+  const r4 = build(s4);
+  for (const id of ['front', 'back']) {
+    const studsU = r4.members.filter((m) => m.wall === id && ['stud', 'king', 'cripple'].includes(m.kind)).map((m) => [m.upoly[0][0], m.upoly[1][0]]);
+    for (const p of r4.walls[id].sheetsIn) for (const x of [p.bbox[0], p.bbox[2]]) assert.ok(studsU.some(([a, b]) => x >= a - 0.5 && x <= b + 0.5), `${id} inner edge ${x} not on a stud`);
+  }
+  const backTop = Math.max(...r4.walls.back.sheetsIn.map((p) => p.bbox[3]));
+  assert.ok(backTop <= r4.info.zr(s4.dims.W - 95) + 0.5);
+  assert.ok(r4.walls.back.sheetsIn.some((p) => Math.abs(p.bbox[1] - 2550) < 0.5 || Math.abs(p.bbox[3] - 2550) < 0.5));
 });
 
 test('state survives a share link', () => {

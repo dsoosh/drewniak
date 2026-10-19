@@ -34,7 +34,9 @@ export function packBars(pieces, stock, kerf = 3, tries = 300) {
     b.pieces.sort((p, q) => q.len - p.len);
     let x = 0;
     for (const p of b.pieces) { p.x = x; x += p.len + kerf; }
-    b.waste = stock - b.used;
+    // the offcut is separated by one more saw cut
+    const rem = stock - b.used;
+    b.waste = rem > kerf ? rem - kerf : 0;
   }
   best.sort((a, b) => a.waste - b.waste);
   return { bars: best, tooLong };

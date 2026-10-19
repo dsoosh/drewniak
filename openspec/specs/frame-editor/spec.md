@@ -4,11 +4,13 @@
 Interfejs konfiguratora szkieletu: parametry, edycja otworów i ścianek na rzutach, model 3D, zapis i udostępnianie konfiguracji.
 ## Requirements
 ### Requirement: Parameters update everything live
-The page SHALL offer inputs for dimensions, base frame, floor, walls, roof, covering sheet,
-stock lengths and prices, kerf and loads, and SHALL rebuild the model, drawings, cut list
-and materials without a submit button. Typing in a number field SHALL rebuild only after a
-short pause (about 450 ms without keystrokes) or immediately when the field is committed
-(Enter or leaving the field), so intermediate values are not computed.
+The page SHALL offer inputs for dimensions, base frame, floor, walls (including interior
+sheathing and the opening width from which openings get double studs), roof, covering sheet,
+stock lengths and prices, and loads, and SHALL rebuild the model, drawings, cut list and
+materials without a submit button. The saw kerf SHALL be a hidden parameter (default 3 mm),
+not shown in the form. Typing in a number field SHALL rebuild only after a short pause (about
+450 ms without keystrokes) or immediately when the field is committed (Enter or leaving the
+field), so intermediate values are not computed.
 
 #### Scenario: Change of pitch
 - **WHEN** the user changes the pitch
@@ -19,11 +21,13 @@ short pause (about 450 ms without keystrokes) or immediately when the field is c
 - **THEN** the model is rebuilt once, for 135
 
 ### Requirement: Openings are edited on the wall elevations
-Each wall SHALL have an elevation view seen from outside showing framing and, on demand,
-sheathing pieces with labels. The user SHALL add a door, window or opening with a button,
-drag it horizontally (and vertically for windows), resize it by its edges, edit its numbers
-in a panel and delete it. Positions snap to 10 mm. While dragging, only the active drawing
-SHALL be redrawn; the summary, tables and layouts SHALL update after the drag settles.
+Each wall SHALL have an elevation view seen from outside and, on a toggle, from inside,
+showing framing and, on demand, the sheathing pieces of that face with labels. The inside view
+SHALL be the mirror image and SHALL show a banana standing on the floor inside. The user SHALL
+add a door, window or opening with a button, drag it horizontally (and vertically for windows),
+resize it by its edges, edit its numbers in a panel and delete it, in either view. Positions
+snap to 10 mm. While dragging, only the active drawing SHALL be redrawn; the summary, tables and
+layouts SHALL update after the drag settles.
 
 #### Scenario: Add a window
 - **WHEN** the user clicks "Okno" on the front wall view
@@ -32,6 +36,10 @@ SHALL be redrawn; the summary, tables and layouts SHALL update after the drag se
 #### Scenario: Drag without lag
 - **WHEN** the user drags a window across the wall
 - **THEN** the elevation follows the pointer and the cut list is recomputed once after release
+
+#### Scenario: Drag in the inside view
+- **WHEN** the user drags a window to the right in the inside view
+- **THEN** the window follows the pointer to the right on screen
 
 ### Requirement: Partitions are drawn on the floor plan
 The floor plan SHALL show the frame, joists, walls and openings. The user SHALL draw a
@@ -60,7 +68,8 @@ cell SHALL toggle it between the covering sheet and a clear sheet.
 ### Requirement: 3D model
 The page SHALL show an orbitable 3D model with toggles for frame, floor, walls, sheathing,
 roof timber and covering, and presets for "szkielet" and "całość". Every drawing and the 3D
-model SHALL include a banana for scale that cannot be hidden and is never mentioned in text.
+model SHALL include a banana for scale that cannot be hidden and is never mentioned in text;
+the 3D model SHALL have one banana on the ground outside and one on the floor inside.
 
 #### Scenario: Skeleton preset
 - **WHEN** the user picks "szkielet"

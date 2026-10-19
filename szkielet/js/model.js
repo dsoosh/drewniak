@@ -22,7 +22,7 @@ export function defaultState() {
     dims: { L: 3101, W: 2500 },
     base: { maxSpan: 1500, midSupport: 'auto' },
     floor: { joistMax: 600, sheetT: 25, splitJoists: false },
-    walls: { h0: 2350, studMax: 625, nogStep: 800, nogStagger: true, sheathT: 12, sheathBelow: 50, sheathe: true },
+    walls: { h0: 2350, studMax: 625, nogStep: 800, nogStagger: true, doubleFrom: 1200, sheatheIn: false, sheathT: 12, sheathBelow: 50, sheathe: true },
     roof: {
       type: 'mono', pitch: 13.9, highSide: 'back', ovhEave: 300, ovhGable: 300,
       rafterMax: 450, battenMax: 420, battenSec: 'l50', ties: true,
@@ -30,7 +30,7 @@ export function defaultState() {
       clear: [],
     },
     openings: {
-      front: [{ id: 'o1', type: 'window', U: 1880, w: 1020, h: 520, sill: 1100 }],
+      front: [{ id: 'o1', type: 'window', U: 1890, w: 1020, h: 520, sill: 1100 }],
       back: [{ id: 'o2', type: 'opening', U: 1100, w: 900, h: 2090, sill: 0 }],
       left: [],
       right: [{ id: 'o3', type: 'door', U: 740, w: 1020, h: 2090, sill: 0 }],
@@ -68,7 +68,7 @@ export function normalize(s) {
   o.dims.W = Math.max(1000, num(o.dims.W, 2500));
   o.roof.pitch = Math.min(45, Math.max(5, num(o.roof.pitch, 13.9)));
   for (const w of WALL_IDS) o.openings[w] = (o.openings[w] || []).map(fixOpening);
-  o.partitions = (o.partitions || []).map((p) => ({ id: p.id || uid('p'), orient: p.orient === 'y' ? 'y' : 'x', c: +p.c, a: +p.a, b: +p.b, h: num(p.h, o.walls.h0), sheathe: !!p.sheathe, bearing: !!p.bearing && p.orient !== 'y', openings: (p.openings || []).map(fixOpening) }));
+  o.partitions = (o.partitions || []).map((p) => ({ id: p.id || uid('p'), orient: p.orient === 'y' ? 'y' : 'x', c: +p.c, a: +p.a, b: +p.b, h: num(p.h, o.walls.h0), sheathe: p.sheathe === true ? 'both' : ['a', 'b', 'both'].includes(p.sheathe) ? p.sheathe : 'none', bearing: !!p.bearing && p.orient !== 'y', openings: (p.openings || []).map(fixOpening) }));
   if (!Array.isArray(o.roof.clear)) o.roof.clear = [];
   return o;
 }
