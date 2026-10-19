@@ -5,6 +5,7 @@ import { defaultState, normalize, encodeState, decodeState } from '../szkielet/j
 import { build } from '../szkielet/js/build.js';
 import { report } from '../szkielet/js/report.js';
 import { packBars, packSheets } from '../szkielet/js/cut.js';
+import { EXAMPLES } from '../szkielet/js/examples.js';
 
 let failed = 0;
 const test = (name, fn) => { try { fn(); console.log('ok  ', name); } catch (e) { failed++; console.log('FAIL', name, '\n     ', e.message); } };
@@ -309,8 +310,14 @@ test('review 3: shared stud, header hanger load, seam nogging over a header, int
     const studsU = r4.members.filter((m) => m.wall === id && ['stud', 'king', 'cripple'].includes(m.kind)).map((m) => [m.upoly[0][0], m.upoly[1][0]]);
     for (const p of r4.walls[id].sheetsIn) for (const x of [p.bbox[0], p.bbox[2]]) assert.ok(studsU.some(([a, b]) => x >= a - 0.5 && x <= b + 0.5), `${id} inner edge ${x} not on a stud`);
   }
-  const backTop = Math.max(...r4.walls.back.sheetsIn.map((p) => p.bbox[3]));
-  assert.ok(backTop <= r4.info.zr(s4.dims.W - 95) + 0.5);
+  // no sheet cell inside a rafter: sheets are notched where the rafter dips below the plate top
+  const rafters = r4.members.filter((m) => m.kind === 'rafter');
+  for (const id of ['front', 'back']) for (const p of [...r4.walls[id].sheets, ...r4.walls[id].sheetsIn]) for (const c of p.cells) {
+    const [ya, yb] = p.shape3d.d, zl = Math.min(r4.info.zr(ya), r4.info.zr(yb));
+    const xs = c.poly.map(([u]) => p.shape3d.map(u)), x0 = Math.min(...xs), x1 = Math.max(...xs), ztop = Math.max(...c.poly.map((q) => q[1]));
+    if (ztop <= zl + 0.5) continue;
+    assert.ok(!rafters.some((m) => m.shape.d[0] < x1 - 0.5 && m.shape.d[1] > x0 + 0.5), `${id} sheet ${p.label} hits a rafter at x ${x0}`);
+  }
   assert.ok(r4.walls.back.sheetsIn.some((p) => Math.abs(p.bbox[1] - 2550) < 0.5 || Math.abs(p.bbox[3] - 2550) < 0.5));
 });
 
@@ -339,6 +346,48 @@ test('review 4: intermediate-line anchors under every transverse beam, beam join
     if (end < 7199) assert.ok(ax.some((a) => Math.abs(a - end) < 0.5), `joint at ${end} not over an anchor`);
   }
   assert.ok(r.info.anchorLoad > 0);
+});
+
+test('limits clamp absurd values', () => {
+  const s = normalize({ ...defaultState(), dims: { L: 80000, W: -5 }, roof: { ...defaultState().roof, pitch: 90, battenMax: 1 } });
+  assert.deepEqual(s.dims, { L: 15000, W: 1000 });
+  assert.equal(s.roof.pitch, 45);
+  assert.equal(s.roof.battenMax, 200);
+  const many = normalize({ ...defaultState(), partitions: [...Array(50)].map((_, i) => ({ id: 'p' + i, orient: 'y', c: 1000, a: 95, b: 2405, h: 2000, openings: [] })) });
+  assert.equal(many.partitions.length, 30);
+});
+
+test('examples build without failing checks or design warnings', () => {
+  for (const e of EXAMPLES) {
+    const s = e.make(), r = build(s);
+    assert.ok(r.checks.every((c) => c.ok), `${e.id}: ${r.checks.filter((c) => !c.ok).map((c) => c.name).join(', ')}`);
+    const real = r.warnings.filter((w) => !/łączon|dłuższa niż kantówka|dłuższe niż materiał/.test(w));
+    assert.deepEqual(real, [], e.id);
+    assert.equal((r.suggestions || []).length, 0, e.id);
+    assert.ok(finite(r));
+  }
+});
+
+test('no sheet above the rafters, partition strip in interior sheathing', () => {
+  const s = fresh((st) => { st.walls.sheatheIn = true; st.partitions.push({ id: 'p', orient: 'y', c: 1500, a: 95, b: 2405, h: 2000, sheathe: 'both', openings: [] }); });
+  const r = build(s);
+  for (const id of ['front', 'back']) for (const p of [...r.walls[id].sheets, ...r.walls[id].sheetsIn]) {
+    const ys = p.shape3d.d;
+    assert.ok(p.bbox[3] <= Math.min(r.info.zr(ys[0]), r.info.zr(ys[1])) + 0.5 || p.bbox[3] <= r.walls[id].top() + 0.5);
+  }
+  const strip = r.walls.front.sheetsIn.flatMap((p) => p.cells).filter((c) => c.x0 < 1500 + 47.5 && c.x1 > 1500 - 47.5);
+  assert.equal(strip.length, 0, 'interior sheet covers the partition end');
+});
+
+test('review 5: no member longer than its stock in the examples, studs under partition cut-out edges', () => {
+  for (const e of EXAMPLES) {
+    const s = e.make(), rep = report(build(s), s);
+    assert.ok(rep.timber.every((x) => x.tooLong.length === 0), `${e.id}: ${rep.timber.flatMap((x) => x.tooLong.map((p) => p.label + ' ' + p.len)).join(', ')}`);
+  }
+  const s = fresh((st) => { st.walls.sheatheIn = true; st.partitions.push({ id: 'p', orient: 'y', c: 1500, a: 95, b: 2405, h: 2000, sheathe: 'both', openings: [] }); });
+  const r = build(s);
+  const studs = r.members.filter((m) => m.wall === 'front' && m.kind === 'stud').map((m) => [m.upoly[0][0], m.upoly[1][0]]);
+  for (const edge of [1500 - 47.5 - 12, 1500 + 47.5 + 12]) assert.ok(studs.some(([a, b]) => edge >= a && edge <= b), `no stud under edge ${edge}`);
 });
 
 test('state survives a share link', () => {

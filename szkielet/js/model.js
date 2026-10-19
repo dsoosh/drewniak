@@ -14,6 +14,24 @@ export const osbPrice = (t, floor = false) => Math.round((OSB_PRICES[t] || 0) * 
 export const PRICE_DEFAULTS = { b100: 189, f45: 69, l50: 22, cover: 45, anchor: 135 };
 export const ANCHOR_RANGE = [120, 150];
 
+// Allowed ranges of numeric parameters [min, max]; one source for normalisation, form inputs
+// and the clamp message.
+export const LIMITS = {
+  'dims.L': [1000, 15000], 'dims.W': [1000, 10000], 'walls.h0': [1500, 3500],
+  'roof.pitch': [5, 45], 'roof.ovhEave': [0, 800], 'roof.ovhGable': [0, 400],
+  'roof.rafterMax': [300, 1200], 'roof.battenMax': [200, 600],
+  'walls.nogStep': [300, 1500], 'walls.doubleFrom': [400, 3000], 'walls.sheathBelow': [0, 100],
+  'base.maxSpan': [600, 3000], 'base.anchorMax': [800, 2500], 'floor.joistMax': [300, 900],
+  'stock.f45.len': [2000, 13000], 'stock.l50.len': [2000, 13000], 'stock.b100.len': [2000, 13000],
+  'loads.floor': [1.0, 10], 'loads.roof': [0.9, 5],
+  'roof.cover.len': [500, 4000], 'roof.cover.wid': [300, 2000], 'roof.cover.lapL': [50, 500],
+  'roof.cover.lapW': [0, 300], 'roof.cover.nails': [0, 60], kerf: [0, 10],
+};
+export const MAX_PARTITIONS = 30, MAX_OPENINGS = 20;
+const getP = (o, p) => p.split('.').reduce((a, k) => a?.[k], o);
+const setP = (o, p, v) => { const ks = p.split('.'); const last = ks.pop(); ks.reduce((a, k) => a[k], o)[last] = v; };
+const clampN = (v, lo, hi, d) => Math.min(hi, Math.max(lo, Number.isFinite(+v) && v !== '' && v !== null ? +v : d));
+
 export const WALL_IDS = ['front', 'back', 'left', 'right'];
 export const WALL_NAMES = { front: 'Przód', back: 'Tył', left: 'Lewa', right: 'Prawa' };
 export const OPENING_NAMES = { door: 'Drzwi', window: 'Okno', opening: 'Otwór' };
@@ -72,23 +90,31 @@ export function normalize(s) {
     return a === undefined ? b : a;
   };
   const o = merge(s || {}, d);
-  o.dims.L = Math.max(1000, num(o.dims.L, 3101));
-  o.dims.W = Math.max(1000, num(o.dims.W, 2500));
-  o.roof.pitch = Math.min(45, Math.max(5, num(o.roof.pitch, 13.9)));
-  for (const w of WALL_IDS) o.openings[w] = (o.openings[w] || []).map(fixOpening);
-  o.partitions = (o.partitions || []).map((p) => ({ id: p.id || uid('p'), orient: p.orient === 'y' ? 'y' : 'x', c: +p.c, a: +p.a, b: +p.b, h: num(p.h, o.walls.h0), sheathe: p.sheathe === true ? 'both' : ['a', 'b', 'both'].includes(p.sheathe) ? p.sheathe : 'none', bearing: !!p.bearing && p.orient !== 'y', openings: (p.openings || []).map(fixOpening) }));
+  for (const [p, [lo, hi]] of Object.entries(LIMITS)) setP(o, p, clampN(getP(o, p), lo, hi, getP(d, p)));
+  o.roof.cover.lapL = Math.min(o.roof.cover.lapL, o.roof.cover.len - 100);
+  o.roof.cover.lapW = Math.min(o.roof.cover.lapW, o.roof.cover.wid - 100);
+  const { L, W } = o.dims;
+  for (const w of WALL_IDS) o.openings[w] = (o.openings[w] || []).slice(0, MAX_OPENINGS).map(fixOpening);
+  o.partitions = (o.partitions || []).slice(0, MAX_PARTITIONS).map((p) => {
+    const lim = p.orient === 'y' ? [W, L] : [L, W];   // [along, across]
+    const a = clampN(p.a, 95, lim[0] - 95 - 300, 95), b = clampN(p.b, a + 300, lim[0] - 95, lim[0] - 95);
+    return { p, a, b, c: clampN(p.c, 95 + 47.5, lim[1] - 95 - 47.5, lim[1] / 2) };
+  }).map(({ p, a, b, c }) => ({ id: p.id || uid('p'), orient: p.orient === 'y' ? 'y' : 'x', c, a, b, h: clampN(p.h, 500, 3500, o.walls.h0), sheathe: p.sheathe === true ? 'both' : ['a', 'b', 'both'].includes(p.sheathe) ? p.sheathe : 'none', bearing: !!p.bearing && p.orient !== 'y', openings: (p.openings || []).map(fixOpening) }));
   if (!Array.isArray(o.roof.clear)) o.roof.clear = [];
+  o.roof.clear = o.roof.clear.slice(0, 500);
+  const studs = [625, 416.6667, 312.5];
+  o.walls.studMax = studs.reduce((best, v) => (Math.abs(v - o.walls.studMax) < Math.abs(best - o.walls.studMax) ? v : best), 625);
   // older saves had empty prices: fall back to the price list
   for (const k of ['b100', 'f45', 'l50', 'cover', 'anchor']) if (o.stock[k].price === '' || o.stock[k].price === null) o.stock[k].price = PRICE_DEFAULTS[k];
   if (!OSB_PRICES[o.walls.sheathT]) o.walls.sheathT = 12;
-  if (![18, 22, 25, 30].includes(+o.floor.sheetT)) o.floor.sheetT = 25;
+  if (![18, 22, 25, 30].includes(+o.floor.sheetT)) o.floor.sheetT = 30;
   o.stock.osbWall.name = `OSB/3 ${o.walls.sheathT} mm`;
   o.stock.osbFloor.name = `OSB/3 ${o.floor.sheetT} mm pióro-wpust`;
   return o;
 }
 
 function fixOpening(op) {
-  return { id: op.id || uid('o'), type: OPENING_NAMES[op.type] ? op.type : 'window', U: +op.U || 0, w: Math.max(200, +op.w || 600), h: Math.max(200, +op.h || 600), sill: op.type === 'door' ? 0 : Math.max(0, +op.sill || 0) };
+  return { id: op.id || uid('o'), type: OPENING_NAMES[op.type] ? op.type : 'window', U: clampN(op.U, 0, 15000, 0), w: clampN(op.w, 200, 6000, 600), h: clampN(op.h, 200, 3000, 600), sill: op.type === 'door' ? 0 : clampN(op.sill, 0, 2500, 0) };
 }
 
 export function encodeState(s) {

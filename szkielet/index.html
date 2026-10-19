@@ -21,6 +21,7 @@
   <h1>Szkielet</h1>
   <p class="sub" id="headline">Budynek szkieletowy na ramie 100×100</p>
   <p class="sub file" id="fileName" hidden></p>
+  <label class="examples"><span class="sr">Przykład</span><select id="exampleSel" aria-label="Projekty przykładowe"><option value="">Przykłady…</option></select></label>
   <div class="actions">
     <button id="btnPdf" class="primary">Pobierz PDF</button>
     <button id="btnLink">Kopiuj link</button>
@@ -54,8 +55,10 @@
           <div class="seg" id="presets">
             <button data-preset="frame">Szkielet</button>
             <button data-preset="all" aria-pressed="true">Całość</button>
+            <button data-preset="vis">Wizualizacja</button>
           </div>
           <div class="layers" id="layers"></div>
+          <button id="btnStereo" aria-pressed="false" title="Dwa obrazy obok siebie – patrz zezem, aż się złożą w jeden">Zez 3D</button>
         </div>
         <div class="viewer" id="viewer"><p class="hint">przeciągnij – obrót · prawy przycisk – przesuw · kółko – zoom</p></div>
       </div>

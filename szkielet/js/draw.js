@@ -178,7 +178,6 @@ export function planSVG(res, state, opt) {
   let s = svgOpen(vb[0], vb[1], vb[2], vb[3], P, opt.interactive ? 'data-view="plan"' : '');
   for (const m of res.members.filter((x) => x.kind === 'beam')) s += poly(m.shape.poly, M, `fill="${P.beam}" fill-opacity="0.45" stroke="${P.ink}" stroke-width="1" vector-effect="non-scaling-stroke"`);
   for (const m of res.members.filter((x) => x.kind === 'joist')) s += poly(m.shape.poly, M, `fill="${P.joist}" fill-opacity="0.6" stroke="${P.muted}" stroke-width="0.6" vector-effect="non-scaling-stroke"`);
-  for (const [x, y] of res.info.supports) s += `<rect x="${f(x - 90)}" y="${f(-y - 90)}" width="180" height="180" fill="none" stroke="${P.muted}" stroke-dasharray="20 14" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
   // outer walls as hatched bands, openings as gaps
   const band = (x0, y0, x1, y1) => poly([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], M, `fill="${P.stud}" stroke="${P.ink}" stroke-width="1.5" vector-effect="non-scaling-stroke"`);
   s += band(0, 0, L, 95) + band(0, W - 95, L, W) + band(0, 95, 95, W - 95) + band(L - 95, 95, L, W - 95);
@@ -210,8 +209,18 @@ export function planSVG(res, state, opt) {
     s += poly([[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]], M, `fill="${P.accent}" fill-opacity="0.4" stroke="${P.accent}" stroke-width="2" vector-effect="non-scaling-stroke"`);
     s += `<text x="${f((r[0] + r[2]) / 2)}" y="${f(-(r[1] + r[3]) / 2 - fs)}" font-size="${f(fs)}" text-anchor="middle" fill="${P.accent}">${fmt(p.b - p.a)}</text>`;
   }
+  // ground anchors: head plate 150, pile ⌀76, numbered row by row, spacing chains below and right
+  const anchors = [...res.info.supports].sort((p, q) => p[1] - q[1] || p[0] - q[0]);
+  anchors.forEach(([x, y], k) => {
+    s += `<rect x="${f(x - 75)}" y="${f(-y - 75)}" width="150" height="150" fill="none" stroke="${P.warn}" stroke-width="1.6" vector-effect="non-scaling-stroke"/><circle cx="${f(x)}" cy="${f(-y)}" r="38" fill="${P.warn}" fill-opacity="0.35" stroke="${P.warn}" stroke-width="1.2" vector-effect="non-scaling-stroke"/>`;
+    s += `<text x="${f(x + 95)}" y="${f(-y - 95)}" font-size="${f(fs * 0.75)}" fill="${P.warn}" font-weight="700" font-family="${P.fontLabel}" pointer-events="none">K${k + 1}</text>`;
+  });
+  const ax = [...new Set(anchors.filter(([, y]) => y < 100).map(([x]) => x))].sort((p, q) => p - q);
+  for (let k = 0; k + 1 < ax.length; k++) s += dimH(ax[k], ax[k + 1], fs * 1.1, fmt(ax[k + 1] - ax[k]), P, fs * 0.8);
+  const ay = [...new Set(anchors.map(([, y]) => Math.round(y)))].sort((p, q) => p - q);
+  for (let k = 0; k + 1 < ay.length; k++) s += dimV(L + fs * 2.8, -ay[k], -ay[k + 1], fmt(ay[k + 1] - ay[k]), P, fs * 0.8);
   const lbl = (x, y, t) => `<text x="${f(x)}" y="${f(y)}" font-size="${f(fs * 1.1)}" text-anchor="middle" fill="${P.muted}" font-weight="700" font-family="${P.fontLabel}" letter-spacing="${f(fs / 8)}">${t}</text>`;
-  s += lbl(L / 2, fs * 4.6, 'PRZÓD') + lbl(L / 2, -W - fs * 3.6, 'TYŁ') + lbl(-fs * 6, -W / 2 - fs * 1.5, 'LEWA') + lbl(L + fs * 4, -W / 2, 'PRAWA');
+  s += lbl(L / 2, fs * 4.6, 'PRZÓD') + lbl(L / 2, -W - fs * 3.6, 'TYŁ') + lbl(-fs * 6, -W / 2 - fs * 1.5, 'LEWA') + lbl(L + fs * 5.4, -W / 2, 'PRAWA');
   s += dimH(0, L, fs * 2.4, fmt(L), P, fs);
   s += dimV(-fs * 1.8, 0, -W, fmt(W), P, fs);
   s += banana(L + fs * 0.5 + 30, -W - fs * 1.5, P);

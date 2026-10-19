@@ -1,5 +1,6 @@
 // Page controller: form, tabs, editing on drawings, results, saving and sharing.
-import { defaultState, normalize, encodeState, decodeState, WALL_IDS, WALL_NAMES, OPENING_NAMES, SECTIONS, uid, osbPrice, ANCHOR_RANGE } from './model.js';
+import { defaultState, normalize, encodeState, decodeState, WALL_IDS, WALL_NAMES, OPENING_NAMES, SECTIONS, uid, osbPrice, ANCHOR_RANGE, LIMITS } from './model.js';
+import { EXAMPLES } from './examples.js';
 import { build } from './build.js';
 import { report, facts } from './report.js';
 import { elevationSVG, planSVG, roofSVG, palette } from './draw.js';
@@ -85,7 +86,7 @@ function renderForm() {
     const id = fid(p);
     if (type === 'chk') return `<div class="chkrow" data-field="${p}"><input type="checkbox" id="${id}"><label for="${id}">${label}</label></div>`;
     const input = type === 'sel' ? `<select id="${id}">${o.options.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select>`
-      : `<input id="${id}" type="${type === 'txt' ? 'text' : 'number'}" ${o.step ? `step="${o.step}"` : ''} ${o.min ? `min="${o.min}"` : ''} inputmode="decimal">`;
+      : `<input id="${id}" type="${type === 'txt' ? 'text' : 'number'}" ${o.step ? `step="${o.step}"` : ''} ${LIMITS[p] ? `min="${LIMITS[p][0]}" max="${LIMITS[p][1]}"` : ''} inputmode="decimal">`;
     return `<label for="${id}" data-field="${p}" class="${type === 'txt' ? 'wide' : ''}">${label}</label><span data-field="${p}" class="${type === 'txt' ? 'wide' : ''}">${input}</span>${o.note ? `<p class="note" data-field="${p}">${o.note}</p>` : ''}`;
   }).join('')}</fieldset>`).join('');
   for (const [, fields] of FIELDS) for (const [p, , type, o = {}] of fields) {
@@ -97,6 +98,12 @@ function renderForm() {
       if (get(state, p) === v) return;
       set(state, p, v);
       state = normalize(state);
+      const got = get(state, p);
+      if (type === 'num' && v !== '' && got !== v && LIMITS[p]) {
+        const [lo, hi] = LIMITS[p];
+        toast(v > hi ? `Najwięcej ${fmtLimit(p, hi)} – przyjęto ${fmtLimit(p, hi)}.` : `Najmniej ${fmtLimit(p, lo)} – przyjęto ${fmtLimit(p, lo)}.`);
+        el.value = got;
+      }
       changed();
     };
     if (type === 'txt' || type === 'num') typed(el, apply); else el.addEventListener('change', apply);
@@ -118,13 +125,15 @@ function syncForm() {
   }
 }
 
+const fmtLimit = (p, v) => (/^(dims|walls\.h0|stock\.)/.test(p) && v >= 1000 ? `${String(v / 1000).replace('.', ',')} m` : String(v).replace('.', ','));
+
 // Typing rebuilds after a pause or when the field is committed (Enter, leaving it), so typing
 // "135" does not compute 1 and 13 first.
 const TYPE_DELAY = 450;
 function typed(el, apply) {
   let t = null, last = el.value;
   // the same raw text is applied once, even if the model clamped it (135 → 1000) in between
-  const run = () => { clearTimeout(t); if (el.value === last) return; last = el.value; apply(); };
+  const run = () => { clearTimeout(t); if (el.value === last) return; apply(); last = el.value; };
   el.addEventListener('focus', () => { last = el.value; });
   el.addEventListener('input', () => { clearTimeout(t); t = setTimeout(run, TYPE_DELAY); });
   el.addEventListener('change', run);
@@ -372,7 +381,7 @@ function bindEditing() {
     const sug = e.target.closest('[data-suggest]');
     if (sug) {
       const g = res.suggestions[+sug.dataset.suggest];
-      const q = { ...g, id: uid('p'), h: state.walls.h0, sheathe: false, bearing: true, openings: [] };
+      const q = { ...g, id: uid('p'), h: state.walls.h0, sheathe: 'both', bearing: true, openings: [] };
       state.partitions.push(q);
       ui.selPart = q.id;
       changed();
@@ -408,7 +417,7 @@ function bindEditing() {
   });
   pv.addEventListener('pointerup', () => {
     if (drag?.kind === 'draw' && drag.preview && drag.preview.b - drag.preview.a >= 400) {
-      const p = { ...drag.preview, id: uid('p'), h: state.walls.h0, sheathe: false, openings: [] };
+      const p = { ...drag.preview, id: uid('p'), h: state.walls.h0, sheathe: 'both', openings: [] };
       state.partitions.push(p);
       ui.selPart = p.id;
       drag = null;
@@ -522,6 +531,7 @@ async function openFile() {
   } catch (err) { if (err?.name !== 'AbortError') toast('Nie udało się otworzyć pliku.'); }
 }
 async function loadText(text, name, handle) {
+  releaseFocus();
   try {
     state = normalize(JSON.parse(text));
     ui.selOp = ui.selPart = null;
@@ -531,13 +541,35 @@ async function loadText(text, name, handle) {
   } catch (_) { toast('To nie jest plik konfiguracji szkieletu.'); }
 }
 
-function toast(t) { const el = $('toast'); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (el.hidden = true), 2600); }
+// a focused field keeps its text through syncForm; commit it before the whole state is replaced
+function releaseFocus() { const a = document.activeElement; if (a && /input|select|textarea/i.test(a.tagName)) a.blur(); }
+
+function toast(t) { const el = $('toast'); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (el.hidden = true), 2600 + t.length * 35); }
 
 function bindActions() {
   $('btnLink').addEventListener('click', async () => {
     const url = `${location.origin}${location.pathname}#s=${encodeState(state)}`;
     history.replaceState(null, '', url);
     try { await navigator.clipboard.writeText(url); toast('Link skopiowany. Otwiera dokładnie tę konfigurację.'); } catch (_) { toast('Link jest w pasku adresu – skopiuj go stamtąd.'); }
+  });
+  $('exampleSel').innerHTML += EXAMPLES.map((e) => `<option value="${e.id}">${e.name}</option>`).join('');
+  $('exampleSel').addEventListener('change', (e) => {
+    const ex = EXAMPLES.find((x) => x.id === e.target.value);
+    e.target.value = '';
+    if (!ex) return;
+    releaseFocus();
+    state = ex.make();
+    ui.selOp = ui.selPart = null; ui.wall = 'front';
+    file.handle = null; file.name = ''; showFile();
+    history.replaceState(null, '', location.pathname);
+    if (view3d) view3d.first = true;
+    changed();
+    toast(`${ex.name}. ${ex.note}`);
+  });
+  $('btnStereo').addEventListener('click', async () => {
+    const v = await ensure3D(); const on = !v.stereo;
+    v.setStereo(on); $('btnStereo').setAttribute('aria-pressed', String(on));
+    if (on) toast('Patrz zezem na środek między obrazami, aż złożą się w jeden przestrzenny.');
   });
   $('btnSave').addEventListener('click', () => saveFile(false));
   $('btnSaveAs').addEventListener('click', () => saveFile(true));
@@ -558,6 +590,7 @@ function bindActions() {
     const b = $('btnReset');
     if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Na pewno? Kliknij jeszcze raz'; setTimeout(() => { b.dataset.armed = '0'; b.textContent = 'Od nowa'; }, 3000); return; }
     b.dataset.armed = '0'; b.textContent = 'Od nowa';
+    releaseFocus();
     state = normalize(defaultState()); ui.selOp = ui.selPart = null; history.replaceState(null, '', location.pathname); changed(); toast('Przywrócono wiatę 3101 × 2500.');
   });
   $('btnPdf').addEventListener('click', async () => {

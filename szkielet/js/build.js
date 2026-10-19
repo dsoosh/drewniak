@@ -67,8 +67,11 @@ export function build(s) {
     for (const [x0, x1] of splitAtSupports(0, L, anchorX.map((x) => x + BEAM / 2), s.stock.b100.len))
       add({ kind: 'beam', sec: 'b100', len: x1 - x0, group: 'base', name: `Belka podłużna (${side})`, note: x1 - x0 < L ? 'styk nad kotwą' : '', shape: box('xy', x0, y0, x1, y0 + BEAM, 0, BEAM) });
   }
-  for (const x0 of beamX)
-    add({ kind: 'beam', sec: 'b100', len: W - 2 * BEAM, group: 'base', name: 'Belka poprzeczna', note: 'na wieszakach w belkach podłużnych', shape: box('xy', x0, BEAM, x0 + BEAM, W - BEAM, 0, BEAM) });
+  const transverse = () => {
+    const runs = splitAtSupports(BEAM, W - BEAM, midY, s.stock.b100.len);
+    for (const x0 of beamX) for (const [y0, y1] of runs)
+      add({ kind: 'beam', sec: 'b100', len: y1 - y0, group: 'base', name: 'Belka poprzeczna', note: runs.length > 1 ? 'na wieszakach, styk nad kotwą' : 'na wieszakach w belkach podłużnych', shape: box('xy', x0, y0, x0 + BEAM, y1, 0, BEAM) });
+  };
   // anchor lines across the width: both longitudinal beams, every bearing wall, and intermediate
   // lines wherever a gap exceeds anchorMax (those anchors sit under the transverse beams)
   const fixedY = [BEAM / 2, ...bearing.map((p) => p.c).sort((p, q) => p - q), W - BEAM / 2];
@@ -92,6 +95,7 @@ export function build(s) {
   const supY = [BEAM / 2, ...midY, W - BEAM / 2];
   out.info.midSpan = Math.max(...supY.slice(1).map((y, i) => y - supY[i]));
   out.info.midY = midY;
+  transverse();
 
   // ---------- floor joists ----------
   const joistY = spaced(0, W - T, s.floor.joistMax);
@@ -106,13 +110,16 @@ export function build(s) {
   joistY.sort((p, q) => p - q);
   const beamCenters = beamX.map((x) => x + BEAM / 2);
   // rim joists across the ends carry the gable-wall plates; long joists butt into them
-  for (const x0 of [0, L - T])
-    add({ kind: 'joist', sec: 'f45', len: W, group: 'floor', name: 'Legar czołowy', note: 'pod ścianą szczytową', shape: box('xy', x0, 0, x0 + T, W, BEAM, BEAM + D) });
+  for (const x0 of [0, L - T]) for (const [y0, y1] of splitEven(0, W, s.stock.f45.len))
+    add({ kind: 'joist', sec: 'f45', len: y1 - y0, group: 'floor', name: 'Legar czołowy', note: y1 - y0 < W ? 'pod ścianą szczytową, styk nad belką' : 'pod ścianą szczytową', shape: box('xy', x0, y0, x0 + T, y1, BEAM, BEAM + D) });
   const joistRuns = chooseJoistSplit(T, L - T, beamCenters, s.stock.f45.len, s.floor.splitJoists, joistY.length, s.kerf);
   for (const y0 of joistY)
     for (const [x0, x1] of joistRuns)
       add({ kind: 'joist', sec: 'f45', len: x1 - x0, group: 'floor', name: 'Legar podłogi', note: joistRuns.length > 1 ? 'styk nad belką' : '', shape: box('xy', x0, y0, x1, y0 + T, BEAM, BEAM + D) });
   out.info.joistY = joistY;
+  const maxJ = { 18: 420, 22: 500, 25: 625, 30: 700 }[s.floor.sheetT] || 625;
+  const jGap = Math.max(...joistY.slice(1).map((y, i) => y - joistY[i]));
+  if (jGap > maxJ + 1) out.warnings.push(`OSB ${s.floor.sheetT} mm na legarach co ${R(jGap)} mm – za rzadko (dla tej płyty do ok. ${maxJ} mm); zmniejsz rozstaw legarów albo weź grubszą płytę.`);
 
   // ---------- floor sheets ----------
   const fl = tileSheets({ U0: 0, U1: L, z0: 0, top: () => W, kinks: [], holes: [] }, SHEET_W, SHEET_H);
@@ -140,6 +147,17 @@ export function build(s) {
     for (const end of [p.a, p.b]) if ((Math.abs(end - (q.c - D / 2)) < 5 || Math.abs(end - (q.c + D / 2)) < 5) && p.c > q.a && p.c < q.b) extra[q.id].push(p.c - q.a);
   }
 
+  const hostC = Object.fromEntries(Object.entries(extra).map(([k, v]) => [k, [...v]]));
+  if (s.walls.sheatheIn) for (const id of WALL_IDS) extra[id] = extra[id].flatMap((c) => [c, c - D / 2 - s.walls.sheathT, c + D / 2 + s.walls.sheathT]);
+  // rafter positions (same as the roof) for notching the sheets of the eaves walls
+  const nR = Math.max(2, Math.ceil((L - T) / s.roof.rafterMax - EPS) + 1);
+  const rafterXs = [...Array(nR)].map((_, i) => (i * (L - T)) / (nR - 1));
+  const notches = (id, ya, yb, Tp) => {
+    const zl = Math.min(zr(ya), zr(yb));
+    if (zl >= Tp - 0.5) return [];
+    return rafterXs.map((x) => (id === 'front' ? [x, x + T] : [L - x - T, L - x])).map(([u0, u1]) => ({ u0: u0 - 3, u1: u1 + 3, v0: zl - 3, v1: Tp + 50 }));
+  };
+
   // roof width carried by each wall (for header sizing): eaves walls half the span plus the overhang,
   // gable-end walls about half a rafter bay
   const rafterBay = (L - T) / Math.max(1, Math.ceil((L - T) / s.roof.rafterMax - EPS));
@@ -150,8 +168,9 @@ export function build(s) {
     frameWall(def, s.openings[id], extra[id], s, out);
     if (s.walls.sheathe) {
       const zS = BEAM - s.walls.sheathBelow;
-      const top = def.flat ? def.top : def.top;
-      const opt = { U0: def.Us[0], U1: def.Us[1], z0: zS, top, kinks: def.kinks, holes: holesOf(s.openings[id], zf) };
+      // eaves walls: the sheet reaches the top plate and is notched around every rafter
+      const top = def.top;
+      const opt = { U0: def.Us[0], U1: def.Us[1], z0: zS, top, kinks: def.kinks, holes: [...holesOf(s.openings[id], zf), ...(def.flat ? notches(id, def.sheet[0], def.sheet[1], def.top()) : [])] };
       const pieces = tileSheets(opt, SHEET_W, SHEET_H);
       def.gap = opt.dropped ? Math.max(...opt.dropped.map(([w, h]) => Math.min(w, h))) : 0;
       pieces.forEach((p, i) => { p.label = `${id[0].toUpperCase()}${i + 1}`; p.wall = id; p.side = 'out'; p.shape3d = { plane: def.plane, d: def.sheet, map: def.map }; });
@@ -160,9 +179,12 @@ export function build(s) {
     }
     if (s.walls.sheatheIn) {
       // inner face, floor to top plate, between the inner faces of the adjoining walls
-      const innerY = { front: D, back: W - D }[id];
-      const topIn = def.flat ? (() => { const t = Math.min(def.top(), zr(innerY)); return () => t; })() : def.top;
-      const optIn = { U0: def.long ? D : def.A, U1: def.long ? L - D : def.B, z0: zf, top: topIn, kinks: def.kinks, holes: holesOf(s.openings[id], zf), uStart: def.Us[0], vStart: BEAM - s.walls.sheathBelow };
+      const innerY = { front: [D, D + st], back: [W - D - st, W - D] }[id];
+      const topIn = def.top;
+      // a partition meeting this wall cuts a full-height strip (its frame and its sheets), backed by studs at both edges
+      const strips = (hostC[id] || []).map((c) => ({ u0: c - D / 2 - st, u1: c + D / 2 + st, v0: zf - 1, v1: zf + 10000 }));
+      if (def.flat) strips.push(...notches(id, innerY[0], innerY[1], def.top()));
+      const optIn = { U0: def.long ? D : def.A, U1: def.long ? L - D : def.B, z0: zf, top: topIn, kinks: def.kinks, holes: [...holesOf(s.openings[id], zf), ...strips], uStart: def.Us[0], vStart: BEAM - s.walls.sheathBelow };
       const dIn = def.depth[0] === 0 ? [D, D + st] : [def.depth[0] - st, def.depth[0]];
       const pieces = tileSheets(optIn, SHEET_W, SHEET_H);
       pieces.forEach((p, i) => { p.label = `${id[0].toUpperCase()}w${i + 1}`; p.wall = id; p.side = 'in'; p.shape3d = { plane: def.plane, d: dIn, map: def.map }; });
@@ -383,7 +405,7 @@ function frameWall(def, openings, extraStuds, s, out) {
       o.newSides = [left ? null : o.leftU, right ? null : o.rightU].filter((x) => x !== null);
       const span = o.rightU - o.leftU;
       const lim = span / 300, d1 = defl(span, Ih(1)), d2 = defl(span, Ih(2));
-      o.layers = d1 <= lim ? 1 : 2;
+      o.layers = 2;   // never a single 45×95 over an opening
       const reaction = (q * span) / 2 / 1000;   // kN at each end
       if ((o.layers === 1 ? d1 : d2) > lim || reaction > BRACKET_KN) single = false;
       else {
@@ -732,7 +754,10 @@ function checks(s, out, g) {
   add(`Belka poprzeczna 100×100${g.mid ? ' z kotwami pośrednimi' : ''}`, s.loads.floor * bSp / 1000, out.info.midSpan, I(BEAM, BEAM), 'zmniejsz rozstaw kotew (dojdzie linia kotew pod środkiem) albo rozstaw belek poprzecznych');
   const aSp = Math.max(...g.anchorX.slice(1).map((x, i) => x - g.anchorX[i]));
   // longitudinal beam: half the floor, the eaves wall and the roof from its side, between supports
-  const qLong = (s.loads.floor * (W / 2) + s.loads.roof * out.info.eaveTrib) / 1000 + 0.5;
+  // floor strip carried by the longitudinal beam: half the gap to the next anchor line
+  const yLines = [BEAM / 2, ...out.info.midY, W - BEAM / 2];
+  const edgeStrip = Math.max(yLines[1] - yLines[0], yLines[yLines.length - 1] - yLines[yLines.length - 2]) / 2;
+  const qLong = (s.loads.floor * edgeStrip + s.loads.roof * out.info.eaveTrib) / 1000 + 0.5;
   const aOk = Math.floor(Math.cbrt((384 * E * I(BEAM, BEAM)) / (1500 * qLong)) / 50) * 50;
   add(`Belka podłużna 100×100 pod ścianą, kotwy co ${R(aSp)}`, qLong, aSp, I(BEAM, BEAM), `zmniejsz rozstaw kotew do ok. ${aOk} mm`);
   // load on the most loaded anchor (characteristic): outer line q × anchor spacing, or an
