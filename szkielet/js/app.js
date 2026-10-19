@@ -86,14 +86,16 @@ function renderForm() {
   }).join('')}</fieldset>`).join('');
   for (const [, fields] of FIELDS) for (const [p, , type, o = {}] of fields) {
     const el = $(fid(p));
-    el.addEventListener(type === 'txt' || type === 'num' ? 'input' : 'change', () => {
+    const apply = () => {
       let v = type === 'chk' ? el.checked : el.value;
       if (type === 'num') { if (v === '' && o.opt) v = ''; else { v = Number(String(v).replace(',', '.')); if (!Number.isFinite(v)) return; } }
       if (type === 'sel' && o.num) v = Number(v);
+      if (get(state, p) === v) return;
       set(state, p, v);
       state = normalize(state);
-      changed(false);
-    });
+      changed();
+    };
+    if (type === 'txt' || type === 'num') typed(el, apply); else el.addEventListener('change', apply);
   }
   syncForm();
 }
@@ -111,15 +113,36 @@ function syncForm() {
   }
 }
 
+// Typing rebuilds after a pause or when the field is committed (Enter, leaving it), so typing
+// "135" does not compute 1 and 13 first.
+const TYPE_DELAY = 450;
+function typed(el, apply) {
+  let t = null, last = el.value;
+  // the same raw text is applied once, even if the model clamped it (135 → 1000) in between
+  const run = () => { clearTimeout(t); if (el.value === last) return; last = el.value; apply(); };
+  el.addEventListener('focus', () => { last = el.value; });
+  el.addEventListener('input', () => { clearTimeout(t); t = setTimeout(run, TYPE_DELAY); });
+  el.addEventListener('change', run);
+  el.addEventListener('keydown', (e) => { if (e.key === 'Enter') run(); });
+}
+
 // ---------- render ----------
 
-let pending = false;
-function changed(syncInputs = true) {
+let pending = null, heavyTimer = null;
+// light: rebuild geometry and redraw only the active view (dragging); the summary, tables and
+// layouts follow once things settle. full: everything on the next frame.
+function changed(opts = {}) {
   save();
-  if (syncInputs) syncForm(); else syncForm();
-  if (pending) return;
-  pending = true;
-  requestAnimationFrame(() => { pending = false; render(); });
+  markDirty();
+  syncForm();
+  const light = !!opts.light;
+  if (pending === 'full') return;
+  if (pending === null) requestAnimationFrame(() => {
+    const mode = pending; pending = null;
+    if (mode === 'light') { res = build(state); renderTab(); clearTimeout(heavyTimer); heavyTimer = setTimeout(render, 300); }
+    else { clearTimeout(heavyTimer); render(); }
+  });
+  pending = light ? 'light' : 'full';
 }
 
 function render() {
@@ -160,7 +183,7 @@ function renderTab() {
   if (ui.tab === 'plan') { $('planView').innerHTML = planSVG(res, state, { pal: P, interactive: true, selected: ui.selPart, preview: drag?.preview }); renderPartPanel(); }
   if (ui.tab === 'walls') {
     if (!res.walls[ui.wall]) ui.wall = 'front';
-    $('wallChips').innerHTML = [...WALL_IDS.map((id) => [id, WALL_NAMES[id]]), ...state.partitions.map((p, i) => [p.id, `Ścianka ${i + 1}`])]
+    $('wallChips').innerHTML = [...WALL_IDS.map((id) => [id, WALL_NAMES[id]]), ...state.partitions.map((p, i) => [p.id, res.walls[p.id]?.name || `Ścianka ${i + 1}`])]
       .map(([id, n]) => `<button data-wall="${id}" aria-pressed="${id === ui.wall}">${n}</button>`).join('');
     $('wallView').innerHTML = elevationSVG(res, state, ui.wall, { pal: P, interactive: true, sheathing: ui.showSheets, selected: ui.selOp });
     renderOpPanel();
@@ -190,6 +213,9 @@ function renderOpPanel() {
   const list = wallOpenings(ui.wall) || [];
   const o = list.find((x) => x.id === ui.selOp);
   const panel = $('opPanel');
+  const key = `${ui.wall}|${o?.id}|${o?.type}`;
+  if (panel.dataset.key === key && panel.contains(document.activeElement)) return;
+  panel.dataset.key = key;
   if (!o) { panel.hidden = false; panel.innerHTML = `<span class="hint-inline">${list.length ? 'Kliknij otwór, żeby go edytować. Przeciągaj go albo jego krawędzie.' : 'Ta ściana nie ma otworów. Dodaj drzwi, okno albo otwór przyciskiem wyżej.'}</span>`; return; }
   panel.hidden = false;
   panel.innerHTML = `<span class="title">${OPENING_NAMES[o.type]}</span>
@@ -199,7 +225,7 @@ function renderOpPanel() {
 <label>Wysokość otworu<input id="op-h" type="number" step="10" value="${o.h}"></label>
 ${o.type === 'door' ? '' : `<label>Od podłogi<input id="op-sill" type="number" step="10" value="${o.sill}"></label>`}
 <button class="danger" id="op-del">Usuń</button>`;
-  const num = (id, k) => $(id)?.addEventListener('input', (e) => { const v = Number(e.target.value); if (Number.isFinite(v)) { o[k] = v; state = normalize(state); changed(); } });
+  const num = (id, k) => { const el = $(id); if (el) typed(el, () => { const v = Number(el.value); if (Number.isFinite(v) && o[k] !== v) { o[k] = v; state = normalize(state); changed(); } }); };
   num('op-U', 'U'); num('op-w', 'w'); num('op-h', 'h'); num('op-sill', 'sill');
   $('op-type').addEventListener('change', (e) => { o.type = e.target.value; if (o.type === 'door') o.sill = 0; else if (o.type === 'window' && o.sill === 0) o.sill = 900; changed(); });
   $('op-del').addEventListener('click', () => { list.splice(list.indexOf(o), 1); ui.selOp = null; changed(); });
@@ -207,18 +233,24 @@ ${o.type === 'door' ? '' : `<label>Od podłogi<input id="op-sill" type="number" 
 
 function renderPartPanel() {
   const p = state.partitions.find((x) => x.id === ui.selPart), panel = $('partPanel');
-  if (!p) { panel.hidden = true; return; }
+  if (!p) { panel.hidden = true; panel.dataset.key = ''; return; }
   const i = state.partitions.indexOf(p);
+  const hEff = R(res.info.parts.find((x) => x.id === p.id)?.h ?? p.h);
+  const key = `${p.id}|${p.bearing}|${hEff}`;
+  if (panel.dataset.key === key && panel.contains(document.activeElement)) return;
+  panel.dataset.key = key;
   panel.hidden = false;
-  panel.innerHTML = `<span class="title">Ścianka ${i + 1} (${p.orient === 'x' ? 'wzdłuż długości' : 'w poprzek'})</span>
+  panel.innerHTML = `<span class="title">${res.walls[p.id]?.name || `Ścianka ${i + 1}`} (${p.orient === 'x' ? 'wzdłuż długości' : 'w poprzek'})</span>
 <label>Oś ${p.orient === 'x' ? 'od przodu' : 'od lewej'}<input id="pp-c" type="number" step="5" value="${R(p.c)}"></label>
 <label>Od<input id="pp-a" type="number" step="5" value="${R(p.a)}"></label>
 <label>Do<input id="pp-b" type="number" step="5" value="${R(p.b)}"></label>
-<label>Wysokość<input id="pp-h" type="number" step="5" value="${p.h}"></label>
+<label>Wysokość${p.bearing ? ' (z dachu)' : ''}<input id="pp-h" type="number" step="5" value="${p.bearing ? hEff : p.h}" ${p.bearing ? 'disabled' : ''}></label>
+${p.orient === 'x' ? `<label class="chk" style="flex-direction:row"><input id="pp-bear" type="checkbox" ${p.bearing ? 'checked' : ''}> nośna (pod krokwie)</label>` : ''}
 <label class="chk" style="flex-direction:row"><input id="pp-sh" type="checkbox" ${p.sheathe ? 'checked' : ''}> OSB obustronnie</label>
 <button id="pp-ops">Otwory w ściance</button>
 <button class="danger" id="pp-del">Usuń</button>`;
-  for (const k of ['c', 'a', 'b', 'h']) $(`pp-${k}`).addEventListener('input', (e) => { const v = Number(e.target.value); if (Number.isFinite(v)) { p[k] = v; changed(); } });
+  for (const k of ['c', 'a', 'b', 'h']) { const el = $(`pp-${k}`); typed(el, () => { const v = Number(el.value); if (Number.isFinite(v) && p[k] !== v) { p[k] = v; changed(); } }); }
+  $('pp-bear')?.addEventListener('change', (e) => { p.bearing = e.target.checked; changed(); });
   $('pp-sh').addEventListener('change', (e) => { p.sheathe = e.target.checked; changed(); });
   $('pp-ops').addEventListener('click', () => { ui.tab = 'walls'; ui.wall = p.id; ui.selOp = null; renderTab(); });
   $('pp-del').addEventListener('click', () => { state.partitions.splice(i, 1); ui.selPart = null; changed(); });
@@ -307,7 +339,7 @@ function bindEditing() {
     if (drag.mode === 'r') o.w = Math.max(300, Math.min(maxU(0) - g.U, g.w + dx));
     if (drag.mode === 't') o.h = Math.max(300, g.h + dz);
     if (drag.mode === 'b') { const sill = Math.min(g.sill + g.h - 300, Math.max(100, g.sill + dz)); o.h = g.h + g.sill - sill; o.sill = sill; }
-    changed();
+    changed({ light: true });
   });
   const end = () => { drag = null; };
   wv.addEventListener('pointerup', end); wv.addEventListener('pointercancel', end);
@@ -317,6 +349,16 @@ function bindEditing() {
     const svg = pv.querySelector('svg');
     if (!svg) return;
     const p = svgPt(svg, e), x = p.x, y = -p.y;
+    const sug = e.target.closest('[data-suggest]');
+    if (sug) {
+      const g = res.suggestions[+sug.dataset.suggest];
+      const q = { ...g, id: uid('p'), h: state.walls.h0, sheathe: false, bearing: true, openings: [] };
+      state.partitions.push(q);
+      ui.selPart = q.id;
+      changed();
+      toast('Dodano ścianę nośną. Wysokość wynika z dachu.');
+      return;
+    }
     const t = e.target.closest('[data-part]');
     if (t) {
       const part = state.partitions.find((q) => q.id === t.dataset.part);
@@ -338,7 +380,7 @@ function bindEditing() {
       const q = drag.part, d = q.orient === 'x' ? y - drag.y0 : x - drag.x0;
       const lim = q.orient === 'x' ? W : L;
       q.c = Math.min(lim - 95 - 47.5, Math.max(95 + 47.5, snap(drag.orig.c + d, 5)));
-      changed();
+      changed({ light: true });
     } else {
       drag.preview = partitionFrom(drag.x0, drag.y0, x, y);
       renderTab();
@@ -414,6 +456,61 @@ function loadInitial() {
 }
 function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (_) { /* ignore */ } }
 
+// ---------- local file ----------
+// With the File System Access API (Chrome, Edge) "Zapisz" writes back to the opened file;
+// elsewhere it downloads a .json and "Otwórz" uses a plain file input.
+const file = { handle: null, name: '', dirty: false };
+const FS_OK = 'showSaveFilePicker' in window;
+const PICK = { types: [{ description: 'Konfiguracja szkieletu', accept: { 'application/json': ['.json'] } }] };
+
+function markDirty() { file.dirty = true; showFile(); }
+function showFile() {
+  const el = $('fileName');
+  if (!el) return;
+  el.textContent = file.name ? `${file.name}${file.dirty ? ' • niezapisane zmiany' : ''}` : '';
+  el.hidden = !file.name;
+}
+async function saveFile(asNew) {
+  const text = JSON.stringify({ app: 'drewniak/szkielet', ...state }, null, 1);
+  const suggested = file.name || `szkielet-${state.dims.L}x${state.dims.W}.json`;
+  if (FS_OK) {
+    try {
+      if (asNew || !file.handle) file.handle = await window.showSaveFilePicker({ suggestedName: suggested, ...PICK });
+      const w = await file.handle.createWritable();
+      await w.write(text); await w.close();
+      file.name = file.handle.name; file.dirty = false; showFile();
+      toast(`Zapisano: ${file.name}`);
+      return;
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+      file.handle = null;   // fall back to a download
+    }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  a.download = suggested; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  file.name = suggested; file.dirty = false; showFile();
+  toast(`Pobrano plik ${suggested}`);
+}
+async function openFile() {
+  if (!FS_OK) { $('fileImport').click(); return; }
+  try {
+    const [h] = await window.showOpenFilePicker(PICK);
+    const f = await h.getFile();
+    await loadText(await f.text(), f.name, h);
+  } catch (err) { if (err?.name !== 'AbortError') toast('Nie udało się otworzyć pliku.'); }
+}
+async function loadText(text, name, handle) {
+  try {
+    state = normalize(JSON.parse(text));
+    ui.selOp = ui.selPart = null;
+    changed();
+    file.handle = handle; file.name = name; file.dirty = false; showFile();
+    toast(`Wczytano: ${name}`);
+  } catch (_) { toast('To nie jest plik konfiguracji szkieletu.'); }
+}
+
 function toast(t) { const el = $('toast'); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (el.hidden = true), 2600); }
 
 function bindActions() {
@@ -422,17 +519,21 @@ function bindActions() {
     history.replaceState(null, '', url);
     try { await navigator.clipboard.writeText(url); toast('Link skopiowany. Otwiera dokładnie tę konfigurację.'); } catch (_) { toast('Link jest w pasku adresu – skopiuj go stamtąd.'); }
   });
-  $('btnExport').addEventListener('click', () => {
-    const blob = new Blob([JSON.stringify(state, null, 1)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = `szkielet-${state.dims.L}x${state.dims.W}.json`; a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  });
+  $('btnSave').addEventListener('click', () => saveFile(false));
+  $('btnSaveAs').addEventListener('click', () => saveFile(true));
+  $('btnOpen').addEventListener('click', openFile);
   $('fileImport').addEventListener('change', async (e) => {
     const f = e.target.files[0]; if (!f) return;
-    try { state = normalize(JSON.parse(await f.text())); ui.selOp = ui.selPart = null; changed(); toast('Wczytano konfigurację.'); } catch (_) { toast('To nie jest plik konfiguracji szkieletu.'); }
+    await loadText(await f.text(), f.name, null);
     e.target.value = '';
   });
+  window.addEventListener('keydown', (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    const k = e.key.toLowerCase();
+    if (k === 's') { e.preventDefault(); saveFile(e.shiftKey); }
+    if (k === 'o') { e.preventDefault(); openFile(); }
+  });
+  window.addEventListener('beforeunload', (e) => { if (file.dirty && file.handle) { e.preventDefault(); e.returnValue = ''; } });
   $('btnReset').addEventListener('click', () => {
     const b = $('btnReset');
     if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Na pewno? Kliknij jeszcze raz'; setTimeout(() => { b.dataset.armed = '0'; b.textContent = 'Od nowa'; }, 3000); return; }

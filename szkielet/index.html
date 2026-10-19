@@ -20,11 +20,14 @@
   <a class="brand" href="../">drewniak</a>
   <h1>Szkielet</h1>
   <p class="sub" id="headline">Budynek szkieletowy na ramie 100×100</p>
+  <p class="sub file" id="fileName" hidden></p>
   <div class="actions">
     <button id="btnPdf" class="primary">Pobierz PDF</button>
     <button id="btnLink">Kopiuj link</button>
-    <button id="btnExport">Zapisz plik</button>
-    <label class="filebtn">Wczytaj plik<input id="fileImport" type="file" accept=".json,application/json" hidden></label>
+    <button id="btnOpen" title="Ctrl+O">Otwórz…</button>
+    <button id="btnSave" title="Ctrl+S">Zapisz</button>
+    <button id="btnSaveAs" title="Ctrl+Shift+S">Zapisz jako…</button>
+    <input id="fileImport" type="file" accept=".json,application/json" hidden>
     <button id="btnReset">Od nowa</button>
   </div>
 </header>

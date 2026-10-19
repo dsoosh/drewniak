@@ -181,13 +181,19 @@ export function planSVG(res, state, opt) {
   state.partitions.forEach((p, i) => {
     const sel = opt.selected === p.id;
     const r = p.orient === 'x' ? [p.a, p.c - 47.5, p.b, p.c + 47.5] : [p.c - 47.5, p.a, p.c + 47.5, p.b];
-    s += poly([[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]], M, `fill="${sel ? P.accent : P.plate}" stroke="${P.ink}" stroke-width="${sel ? 2.5 : 1.5}" vector-effect="non-scaling-stroke" ${opt.interactive ? `data-part="${p.id}" style="cursor:move"` : ''}`);
+    s += poly([[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]], M, `fill="${sel ? P.accent : p.bearing ? P.header : P.plate}" stroke="${P.ink}" stroke-width="${sel ? 2.5 : 1.5}" vector-effect="non-scaling-stroke" ${opt.interactive ? `data-part="${p.id}" style="cursor:move"` : ''}`);
     for (const o of p.openings) {
       const g = p.orient === 'x' ? [p.a + o.U, p.c - 47.5, p.a + o.U + o.w, p.c + 47.5] : [p.c - 47.5, p.a + o.U, p.c + 47.5, p.a + o.U + o.w];
       s += poly([[g[0], g[1]], [g[2], g[1]], [g[2], g[3]], [g[0], g[3]]], M, `fill="${P.bg}" stroke="${P.ink}" stroke-width="1" vector-effect="non-scaling-stroke" pointer-events="none"`);
     }
     const cx = (r[0] + r[2]) / 2, cy = (r[1] + r[3]) / 2;
-    s += `<text x="${f(cx + (p.orient === 'y' ? fs * 0.9 : 0))}" y="${f(-cy - (p.orient === 'x' ? fs * 0.7 : 0))}" font-size="${f(fs)}" text-anchor="middle" fill="${P.ink}" font-family="${P.fontLabel}" pointer-events="none">Ścianka ${i + 1}</text>`;
+    s += `<text x="${f(cx + (p.orient === 'y' ? fs * 0.9 : 0))}" y="${f(-cy - (p.orient === 'x' ? fs * 0.7 : 0))}" font-size="${f(fs)}" text-anchor="middle" fill="${P.ink}" font-family="${P.fontLabel}" pointer-events="none">${esc(res.walls[p.id]?.name || `Ścianka ${i + 1}`)}</text>`;
+  });
+  // proposed bearing walls from the rafter check
+  (res.suggestions || []).forEach((g, k) => {
+    const r = [g.a, g.c - 47.5, g.b, g.c + 47.5];
+    s += poly([[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]], M, `fill="${P.warn}" fill-opacity="0.12" stroke="${P.warn}" stroke-width="2.5" stroke-dasharray="14 9" vector-effect="non-scaling-stroke" ${opt.interactive ? `data-suggest="${k}" style="cursor:copy"` : ''}`);
+    s += `<text x="${f((g.a + g.b) / 2)}" y="${f(-g.c - fs * 0.9)}" font-size="${f(fs)}" text-anchor="middle" fill="${P.warn}" font-family="${P.fontLabel}" font-weight="700" pointer-events="none">proponowana ściana nośna, oś ${fmt(g.c)}${opt.interactive ? ' – kliknij, żeby dodać' : ''}</text>`;
   });
   if (opt.preview) {
     const p = opt.preview;

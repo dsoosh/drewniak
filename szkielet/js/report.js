@@ -52,7 +52,11 @@ export function report(res, s) {
   out.extras.push({ name: 'Kotwy podwalina–rama (co ≤ 1,2 m)', qty: Math.ceil(perim / 1200) + 4, unit: 'szt.' });
   out.extras.push({ name: 'Taśma perforowana na narożniki oczepu', qty: 4, unit: 'szt.' });
   const rafters = res.members.filter((m) => m.kind === 'rafter').length;
-  out.extras.push({ name: 'Łączniki krokwiowe (krokiew–oczep)', qty: rafters * 2 - (s.roof.type === 'gable' ? rafters : 0), unit: 'szt.' });
+  const bearing = (res.info.parts || []).filter((p) => p.bearing);
+  const rafterLines = res.info.rafterX.length;
+  out.extras.push({ name: 'Łączniki krokwiowe (krokiew–oczep)', qty: rafters * 2 - (s.roof.type === 'gable' ? rafters : 0) + bearing.length * rafterLines, unit: 'szt.' });
+  if (bearing.length) out.extras.push({ name: 'Kotwy podwaliny ściany nośnej do legarów', qty: bearing.reduce((t, p) => t + Math.ceil((p.b - p.a) / 1200) + 1, 0), unit: 'szt.' });
+  if (res.info.rafterSplices) out.extras.push({ name: 'Nakładki na styk krokwi + śruby M12', qty: res.info.rafterSplices, unit: 'kpl.' });
   if (s.roof.type === 'gable') out.extras.push({ name: 'Nakładki kalenicowe (para krokwi)', qty: rafters, unit: 'szt.' });
   else out.extras.push({ name: 'Obróbka górnej krawędzi dachu', qty: (res.roof.Lr / 1000).toFixed(1).replace('.', ','), unit: 'm' });
   const osb = (out.wall?.count || 0) + out.floor.count;

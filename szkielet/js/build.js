@@ -38,6 +38,23 @@ export function build(s) {
 
   const add = (m) => { m.len = R(m.len); out.members.push(m); return m; };
 
+  // Bearing partitions (along the length) carry the rafters: their top plate meets the rafter
+  // underside with the same birdsmouth seat as the outer plates; the height follows from the roof.
+  const bearingTop = (c) => {
+    const y0 = c - D / 2, y1 = c + D / 2, z0 = zr(y0), z1 = zr(y1);
+    if (!mono && y0 < W / 2 && y1 > W / 2) return zr(W / 2);
+    if (Math.abs(z1 - z0) < 1e-6) return z0;
+    return z1 > z0 ? zr(y0 + sw) : zr(y1 - sw);
+  };
+  const parts = s.partitions.map((p) => (p.bearing && p.orient === 'x' ? { ...p, h: bearingTop(p.c) - zf, Tp: bearingTop(p.c) } : { ...p, bearing: false }));
+  const bearing = parts.filter((p) => p.bearing);
+  out.info.parts = parts;
+  // rafter supports across the width; the roof width each eaves wall carries
+  const supAll = [D / 2, W - D / 2, ...bearing.map((p) => p.c), ...(mono ? [] : [W / 2])].sort((p, q) => p - q);
+  out.info.supAll = supAll;
+  const eaveTrib = (front) => (bearing.length ? (front ? supAll[1] - supAll[0] : supAll[supAll.length - 1] - supAll[supAll.length - 2]) / 2 : W / 2) + s.roof.ovhEave;
+  out.info.eaveTrib = Math.max(eaveTrib(true), eaveTrib(false));
+
   // ---------- base frame ----------
   const nT = Math.max(2, Math.ceil((L - BEAM) / s.base.maxSpan) + 1);
   const beamX = [...Array(nT)].map((_, i) => (i * (L - BEAM)) / (nT - 1));
@@ -50,17 +67,33 @@ export function build(s) {
   // supports under the middle of transverse beams: as many as needed to keep spans ≤ maxSpan
   const nMid = s.base.midSupport === 'no' ? 0 : Math.max(s.base.midSupport === 'yes' ? 1 : 0, s.base.midSupport === 'auto' && W > 2000 ? Math.ceil((W - BEAM) / s.base.maxSpan - EPS) - 1 : 0);
   const mid = nMid > 0;
-  const midY = [...Array(nMid)].map((_, i) => BEAM / 2 + ((i + 1) * (W - BEAM)) / (nMid + 1));
+  // bearing walls get their own support line; regular mid supports closer than 300 mm to it are dropped
+  const fixedY = [BEAM / 2, ...bearing.map((p) => p.c).sort((p, q) => p - q), W - BEAM / 2];
+  const midY = [];
+  for (let i = 0; i + 1 < fixedY.length; i++) {
+    if (i > 0) midY.push(fixedY[i]);
+    const gap = fixedY[i + 1] - fixedY[i];
+    const k = nMid === 0 ? 1 : Math.max(1, Math.ceil(gap / s.base.maxSpan - EPS));
+    for (let j = 1; j < k; j++) midY.push(fixedY[i] + (gap * j) / k);
+  }
+  if (nMid === 1 && !bearing.length && midY.length === 0) midY.push(W / 2);
+  midY.sort((p, q) => p - q);
   out.info.supports = beamX.flatMap((x) => [[x + BEAM / 2, BEAM / 2], [x + BEAM / 2, W - BEAM / 2], ...midY.map((y) => [x + BEAM / 2, y])]);
   out.info.beamX = beamX;
-  out.info.midSpan = (W - BEAM) / (nMid + 1);
+  const supY = [BEAM / 2, ...midY, W - BEAM / 2];
+  out.info.midSpan = Math.max(...supY.slice(1).map((y, i) => y - supY[i]));
+  out.info.midY = midY;
 
   // ---------- floor joists ----------
   const joistY = spaced(0, W - T, s.floor.joistMax);
   const need = [];
   for (let k = 1; k * SHEET_H < W; k++) need.push(k * SHEET_H);   // floor sheet seams across the joists
-  for (const p of s.partitions) if (p.orient === 'x') need.push(p.c);
+  for (const p of parts) if (p.orient === 'x') { if (!p.bearing) need.push(p.c); }
   for (const c of need) if (!joistY.some((y) => y < c + T / 2 && y + T > c - T / 2 - 2)) joistY.push(c - T / 2);
+  for (const p of bearing) {
+    for (let i = joistY.length - 1; i >= 0; i--) if (joistY[i] < p.c + T + 2 && joistY[i] + T > p.c - T - 2) joistY.splice(i, 1);
+    joistY.push(p.c - T - 1, p.c + 1);
+  }
   joistY.sort((p, q) => p - q);
   const beamCenters = beamX.map((x) => x + BEAM / 2);
   // rim joists across the ends carry the gable-wall plates; long joists butt into them
@@ -86,14 +119,14 @@ export function build(s) {
     right: { id: 'right', A: D, B: W - D, Us: [0, W], flat: false, top: (U) => zr(U), kinks: mono ? [] : [W / 2], plane: 'yz', map: (U) => U, depth: [L - D, L], sheet: [L, L + st] },
   };
   const extra = { front: [], back: [], left: [], right: [] };
-  const pDefs = s.partitions.map((p) => partitionDef(p, zf));
-  for (const p of s.partitions) {
+  const pDefs = parts.map((p) => partitionDef(p, zf));
+  for (const p of parts) {
     extra[p.id] = [];
     const host = (wall, U) => extra[wall] && extra[wall].push(U);
     if (p.orient === 'x') { if (Math.abs(p.a - D) < 5) host('left', W - p.c); if (Math.abs(p.b - (L - D)) < 5) host('right', p.c); }
     else { if (Math.abs(p.a - D) < 5) host('front', p.c); if (Math.abs(p.b - (W - D)) < 5) host('back', L - p.c); }
   }
-  for (const p of s.partitions) for (const q of s.partitions) {
+  for (const p of parts) for (const q of parts) {
     if (p === q || p.orient === q.orient) continue;
     for (const end of [p.a, p.b]) if ((Math.abs(end - (q.c - D / 2)) < 5 || Math.abs(end - (q.c + D / 2)) < 5) && p.c > q.a && p.c < q.b) extra[q.id].push(p.c - q.a);
   }
@@ -101,7 +134,7 @@ export function build(s) {
   // roof width carried by each wall (for header sizing): eaves walls half the span plus the overhang,
   // gable-end walls about half a rafter bay
   const rafterBay = (L - T) / Math.max(1, Math.ceil((L - T) / s.roof.rafterMax - EPS));
-  const trib = { front: W / 2 + s.roof.ovhEave, back: W / 2 + s.roof.ovhEave, left: rafterBay / 2, right: rafterBay / 2 };
+  const trib = { front: eaveTrib(true), back: eaveTrib(false), left: rafterBay / 2, right: rafterBay / 2 };
   for (const id of WALL_IDS) {
     const def = { ...defs[id], zb: zf, pv, a, name: WALL_NAMES[id], trib: trib[id] };
     out.walls[id] = def;
@@ -117,11 +150,20 @@ export function build(s) {
       def.sheets = pieces;
     }
   }
-  s.partitions.forEach((p, i) => {
-    const def = { ...pDefs[i], pv, a, name: `Ścianka ${i + 1}` };
+  // roof width carried by a bearing wall: half of the rafter spans on both sides
+  const bearingTrib = (c) => { const i = supAll.indexOf(c); return 1.25 * (((supAll[i + 1] ?? c) - (supAll[i - 1] ?? c)) / 2); };
+  // gable ties pass through bearing walls: keep studs and noggings out of their way
+  const tieX = !mono && s.roof.ties ? (() => { const n = Math.max(2, Math.ceil((L - T) / s.roof.rafterMax - EPS) + 1); return [...Array(n)].map((_, i) => (i * (L - T)) / (n - 1)).slice(1, -1).map((x) => [x + T, x + 2 * T]); })() : [];
+  parts.forEach((p, i) => {
+    const def = { ...pDefs[i], pv, a, name: p.bearing ? `Ściana nośna ${i + 1}` : `Ścianka ${i + 1}`, trib: p.bearing ? bearingTrib(p.c) : 0 };
     out.walls[p.id] = def;
     const ys = p.orient === 'x' ? [p.c - D / 2, p.c + D / 2] : [p.a, p.b, ...(mono || p.a > W / 2 || p.b < W / 2 ? [] : [W / 2])];
-    if (zf + p.h > Math.min(...ys.map(zr)) + 1) out.warnings.push(`${def.name}: wyższa niż spód krokwi w tym miejscu – obniż ją.`);
+    if (!p.bearing && zf + p.h > Math.min(...ys.map(zr)) + 1) out.warnings.push(`${def.name}: wyższa niż spód krokwi w tym miejscu – obniż ją.`);
+    if (p.bearing && tieX.length) {
+      def.tieZone = { us: tieX.map(([x0, x1]) => [x0 - p.a, x1 - p.a]), z0: Tf - 5, z1: Tf + D + 5 };
+      if (p.Tp - 2 * T < Tf + D + 5) out.warnings.push(`${def.name}: oczep ściany nośnej wypada na wysokości ściągów – przesuń ścianę bliżej kalenicy.`);
+    }
+    if (p.sheathe) def.seamBase = zf;
     frameWall(def, p.openings, extra[p.id], s, out);
     if (p.sheathe) {
       def.sheets = [];
@@ -135,9 +177,9 @@ export function build(s) {
   });
 
   // ---------- roof ----------
-  buildRoof(s, out, { zr, Tf, Tb, a, tn, cs, sn, mono, backHigh, zf });
+  buildRoof(s, out, { zr, Tf, Tb, a, tn, cs, sn, mono, backHigh, zf, bearing });
 
-  checks(s, out, { joistY, beamX, mid, cs, mono });
+  checks(s, out, { joistY, beamX, mid, cs, mono, bearing });
   return out;
 }
 
@@ -291,7 +333,12 @@ function frameWall(def, openings, extraStuds, s, out) {
   const grid = [];
   const s0 = def.Us[0], step = s.walls.studMax;
   for (let g = s0 + Math.ceil((A - s0) / step - EPS) * step; g <= B + EPS; g += step) grid.push(g);
-  for (const g of grid) take(Math.min(B - T, Math.max(A, g - T / 2)), 'grid');
+  for (const g of grid) {
+    let u0 = Math.min(B - T, Math.max(A, g - T / 2));
+    const hit = def.tieZone && def.tieZone.us.find(([p, q]) => u0 < q && u0 + T > p);
+    if (hit) u0 = u0 + T / 2 < (hit[0] + hit[1]) / 2 ? hit[0] - T : hit[1];
+    take(u0, 'grid');
+  }
 
   const zone = (u0) => ops.find((o) => u0 < o.o1 + 2 * T - 1 && u0 + T > o.o0 - 2 * T + 1);
   const verts = [];   // [u0,u1,v0,v1(min),topf] for nogging
@@ -363,9 +410,12 @@ function frameWall(def, openings, extraStuds, s, out) {
   const utMax = Math.max(ut(A), ut(B), ...kinks.map(ut));
   const rows = [];
   for (let z = zb + s.walls.nogStep; z < utMax - 150; z += s.walls.nogStep) rows.push(z);
-  if (!def.partition) for (let z = zS + SHEET_H; z < utMax - T; z += SHEET_H) {
+  const seams = new Set();
+  const seamBase = def.partition ? def.seamBase : zS;
+  if (seamBase !== undefined) for (let z = seamBase + SHEET_H; z < utMax - T; z += SHEET_H) {
     const i = rows.findIndex((r) => Math.abs(r - z) < s.walls.nogStep / 2);
     if (i >= 0) rows[i] = z; else rows.push(z);
+    seams.add(z);
   }
   def.nogRows = rows;
   verts.sort((p, q) => p[0] - q[0]);
@@ -375,10 +425,12 @@ function frameWall(def, openings, extraStuds, s, out) {
     for (let i = 0; i + 1 < cover.length; i++) {
       const u0 = cover[i][1], u1 = cover[i + 1][0];
       if (u1 - u0 < 80) continue;
-      const z = z0 + (s.walls.nogStagger ? (bay++ % 2 ? T / 2 + 5 : -T / 2 - 5) : 0);
+      // staggered rows alternate above and below the line; a sheet-seam row stays in line
+      const z = z0 + (s.walls.nogStagger && !seams.has(z0) ? (bay++ % 2 ? T / 2 + 5 : -T / 2 - 5) : 0);
       const um = (u0 + u1) / 2;
       if (ops.some((o) => um > o.o0 - T && um < o.o1 + T && z + T / 2 > o.ob - T - 5 && z - T / 2 < o.ot + o.hh + 5)) continue;
       if (z + T / 2 > Math.min(ut(u0), ut(u1)) - 5) continue;
+      if (def.tieZone && z + T / 2 > def.tieZone.z0 && z - T / 2 < def.tieZone.z1) continue;
       push('nog', 'f45', rect(u0, u1, z - T / 2, z + T / 2), u1 - u0, 'Rygiel', '95 w głąb ściany, licem ze słupkami');
     }
   }
@@ -453,14 +505,14 @@ function cellEdges(c, cells) {
 function buildRoof(s, out, g) {
   const { L, W } = s.dims;
   const r = s.roof, o = r.ovhEave, oG = r.ovhGable;
-  const { zr, Tf, Tb, a, cs, sn, mono, backHigh } = g;
+  const { zr, Tf, Tb, a, cs, sn, mono, backHigh, bearing } = g;
   const zt = (y) => zr(y) + D / cs;
   const n = Math.max(2, Math.ceil((L - T) / r.rafterMax - EPS) + 1);
   const rx = [...Array(n)].map((_, i) => (i * (L - T)) / (n - 1));
   out.info.rafterX = rx;
   out.info.rafterSpacing = (L - T) / (n - 1);
   const notch = R(out.info.notch);
-  const plates = [[0, D, Tf], [W - D, W, Tb]];
+  const plates = [[0, D, Tf], [W - D, W, Tb], ...bearing.map((p) => [p.c - D / 2, p.c + D / 2, p.Tp])];
   const under = (y0, y1) => {
     // underside from y0 to y1 with birdsmouth seats on the wall plates
     const pts = [[y0, zr(y0)]];
@@ -474,11 +526,20 @@ function buildRoof(s, out, g) {
   };
   const rafterPoly = (y0, y1) => [...under(y0, y1), [y1, zt(y1)], [y0, zt(y0)]];
   const halves = mono ? [[-o, W + o]] : [[-o, W / 2], [W / 2, W + o]];
+  let tooLong = 0, spliced = 0;
   for (const x0 of rx) for (const [y0, y1] of halves) {
-    const len = (y1 - y0) / cs;
-    if (len > s.stock.f45.len) out.warnings.push(`Krokiew ${R(len)} mm jest dłuższa niż kantówka ${s.stock.f45.len} mm.`);
-    out.members.push({ kind: 'rafter', sec: 'f45', len: R(len), group: 'roof', name: 'Krokiew', note: `wcięcie ${notch} mm, końce pionowo${mono ? '' : ', przy kalenicy pod kątem'}`, shape: { plane: 'yz', poly: rafterPoly(y0, y1), d: [x0, x0 + T] } });
+    let runs = [[y0, y1]];
+    if ((y1 - y0) / cs > s.stock.f45.len) {
+      const mid = (y0 + y1) / 2;
+      const c = bearing.map((p) => p.c).filter((c) => c > y0 && c < y1).sort((p, q) => Math.abs(p - mid) - Math.abs(q - mid))[0];
+      if (c !== undefined && Math.max(c - y0, y1 - c) / cs <= s.stock.f45.len) { runs = [[y0, c], [c, y1]]; spliced++; } else tooLong = Math.max(tooLong, (y1 - y0) / cs);
+    }
+    for (const [p, q] of runs)
+      out.members.push({ kind: 'rafter', sec: 'f45', len: R((q - p) / cs), group: 'roof', name: 'Krokiew', note: `wcięcie ${notch} mm, końce pionowo${mono ? '' : ', przy kalenicy pod kątem'}${runs.length > 1 ? ', styk na ścianie nośnej z nakładkami na śruby' : ''}`, shape: { plane: 'yz', poly: rafterPoly(p, q), d: [x0, x0 + T] } });
   }
+  out.info.rafterSplices = spliced;
+  if (tooLong) out.warnings.push(`Krokiew ${R(tooLong)} mm jest dłuższa niż kantówka ${s.stock.f45.len} mm – dodaj ścianę nośną, na której da się ją połączyć, albo kup dłuższy materiał.`);
+  else if (spliced) out.warnings.push(`Krokwie łączone na ścianie nośnej (${spliced} styków) – nakładki z obu stron, skręcone śrubami.`);
   if (!mono) {
     const long = W > s.stock.f45.len;
     if (r.ties) for (const x0 of rx.slice(1, -1)) {
@@ -571,11 +632,34 @@ function checks(s, out, g) {
   add(`Legar podłogi 45×95, rozstaw ${R(jSp)}`, s.loads.floor * jSp / 1000, bSp, I(T, D), 'zmniejsz rozstaw belek poprzecznych');
   add(`Belka poprzeczna 100×100${g.mid ? ' z podporami pośrednimi' : ''}`, s.loads.floor * bSp / 1000, out.info.midSpan, I(BEAM, BEAM), 'dodaj podporę pod środkiem belek poprzecznych');
   // longitudinal beam: half the floor, the eaves wall and the roof from its side, between supports
-  const qLong = (s.loads.floor * (W / 2) + s.loads.roof * (W / 2 + s.roof.ovhEave)) / 1000 + 0.5;
+  const qLong = (s.loads.floor * (W / 2) + s.loads.roof * out.info.eaveTrib) / 1000 + 0.5;
   add('Belka podłużna 100×100 pod ścianą', qLong, bSp, I(BEAM, BEAM), 'zmniejsz rozstaw belek poprzecznych (więcej podpór)');
+  for (const p of g.bearing) {
+    const tribW = out.walls[p.id]?.trib || 0;
+    add(`Legar podwójny pod ścianą nośną (oś ${R(p.c)})`, (s.loads.roof * tribW + s.loads.floor * 0.2) / 1000 + 0.5, bSp, 2 * I(T, D), 'gęściej belki poprzeczne albo belka 100×100 pod ścianą');
+  }
   const rSp = out.info.rafterSpacing;
-  const spanH = s.roof.type === 'mono' ? W - D : W / 2 - D / 2;
-  add(`Krokiew 45×95, rozstaw ${R(rSp)}`, (s.loads.roof * rSp / 1000) * g.cs ** 2, spanH / g.cs, I(T, D), 'więcej krokwi albo mniejsza rozpiętość');
+  // rafter spans between supports: outer plates, bearing walls and (gable) the ridge
+  const sup = [D / 2, W - D / 2, ...g.bearing.map((p) => p.c), ...(g.mono ? [] : [W / 2])].sort((p, q) => p - q);
+  const gaps = sup.slice(1).map((y, i) => [sup[i], y]);
+  const spanH = Math.max(...gaps.map(([p, q]) => q - p));
+  const qR = (s.loads.roof * rSp / 1000) * g.cs ** 2;
+  add(`Krokiew 45×95, rozstaw ${R(rSp)}${g.bearing.length ? ', ze ścianą nośną' : ''}`, qR, spanH / g.cs, I(T, D), 'dodaj ścianę nośną (propozycja na rzucie) albo więcej krokwi');
+  // proposals: split every too-long span evenly so each part passes L/300
+  const lhMax = Math.cbrt((384 * E * I(T, D)) / (1500 * qR)) * g.cs;
+  out.suggestions = [];
+  for (const [p, q] of gaps) {
+    if (q - p <= lhMax) continue;
+    const k = Math.ceil((q - p) / lhMax - EPS);
+    for (let j = 1; j < k; j++) {
+      const c = Math.round((p + ((q - p) * j) / k) / 5) * 5;
+      const near = s.partitions.find((x) => x.orient === 'x' && Math.abs(x.c - c) < D * 3 && !x.bearing);
+      if (near) { out.warnings.push(`${out.walls[near.id]?.name || 'Ścianka'} stoi tam, gdzie potrzebna jest ściana nośna (oś ${c}) – oznacz ją jako nośną.`); continue; }
+      if (s.partitions.some((x) => x.orient === 'x' && Math.abs(x.c - c) < D)) continue;
+      out.suggestions.push({ orient: 'x', c, a: D, b: L - D });
+    }
+  }
+  if (out.suggestions.length) out.warnings.push(`Krokiew 45×95 nie przenosi przęsła ${R(spanH)} mm – proponowane ściany nośne w osi ${out.suggestions.map((x) => `${x.c} mm`).join(', ')} od przodu (przerywane na rzucie podłogi, kliknij, żeby dodać).`);
   const sl = out.roof.slopes[0];
   const bs = SECTIONS[s.roof.battenSec] || SECTIONS.l50;
   add(`Łata ${bs.w}×${bs.h}, rozstaw ${R(sl.battenSpacing)}`, (s.loads.roof * sl.battenSpacing / 1000) * g.cs, rSp, I(bs.w, bs.h), 'więcej krokwi');

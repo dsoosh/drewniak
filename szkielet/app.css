@@ -34,6 +34,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, .filebtn:focus-
 .brand { font: 700 13px var(--mono); color: var(--accent); text-decoration: none; letter-spacing: .08em; text-transform: uppercase; }
 .top h1 { font: 800 30px/1 var(--display); font-stretch: 80%; margin: 0; letter-spacing: .01em; }
 .sub { margin: 0; color: var(--muted); font-family: var(--mono); font-size: 13px; }
+.sub.file { color: var(--accent); }
 .actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: 6px; }
 
 .layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); align-items: start; }

@@ -177,6 +177,65 @@ test('100×100 bought in 6.5 m pieces, long beams joined over a beam', () => {
   assert.ok(front.every((m) => m.len <= 6500));
 });
 
+test('wide mono roof proposes bearing walls that make rafters pass', () => {
+  const s0 = fresh((st) => { st.dims.W = 5000; st.dims.L = 4000; });
+  const r = build(s0);
+  const rafter = r.checks.find((c) => c.name.startsWith('Krokiew'));
+  assert.equal(rafter.ok, false);
+  assert.ok(r.suggestions.length >= 1);
+  assert.ok(r.warnings.some((w) => /proponowane ściany nośne/.test(w)));
+  const s1 = fresh((st) => { st.dims.W = 5000; st.dims.L = 4000; for (const g of r.suggestions) st.partitions.push({ ...g, id: 'b' + g.c, h: 2000, bearing: true, openings: [] }); });
+  const r1 = build(s1);
+  assert.ok(r1.checks.find((c) => c.name.startsWith('Krokiew')).ok);
+  assert.equal(r1.suggestions.length, 0);
+});
+
+test('bearing wall: plate under rafters, notched rafters, supports and double joist', () => {
+  const s = fresh((st) => { st.dims.W = 4000; st.partitions.push({ id: 'b', orient: 'x', c: 2000, a: 95, b: 3006, h: 1000, bearing: true, openings: [] }); });
+  const r = build(s);
+  const p = r.info.parts.find((x) => x.id === 'b');
+  const plate = r.members.filter((m) => m.wall === 'b' && m.name === 'Oczep (górny)');
+  const top = Math.max(...plate.flatMap((m) => m.upoly.map((q) => q[1])));
+  assert.ok(Math.abs(top - p.Tp) < 0.5);
+  assert.ok(Math.abs(p.Tp - r.info.zr(2000 - 47.5 + r.info.sw)) < 0.5);
+  assert.ok(r.info.supports.filter(([, y]) => y === 2000).length === r.info.beamX.length);
+  assert.ok(r.info.joistY.filter((y) => y > 2000 - 100 && y < 2000 + 60).length >= 2);
+  const raf = r.members.find((m) => m.kind === 'rafter');
+  assert.ok(raf.shape.poly.some(([y, z]) => Math.abs(y - (2000 - 47.5)) < 0.5));
+  assert.equal(r.walls.b.name, 'Ściana nośna 1');
+});
+
+test('noggings are staggered except on the sheet seam row', () => {
+  const r = build(fresh());
+  const back = r.members.filter((m) => m.wall === 'back' && m.kind === 'nog');
+  const zs = (row) => back.map((m) => (m.upoly[0][1] + m.upoly[2][1]) / 2).filter((z) => Math.abs(z - row) < 40);
+  const regular = zs(r.walls.back.nogRows[0]);
+  assert.ok(new Set(regular.map(Math.round)).size === 2, 'two heights in a regular row');
+  const seam = zs(2550);
+  assert.ok(seam.length > 0 && seam.every((z) => Math.abs(z - 2550) < 0.5));
+});
+
+test('review 2: doubled joist on a sheet seam, ridge wall, ties clear of bearing walls, rafter splice', () => {
+  const add = (st, c) => st.partitions.push({ id: 'b' + c, orient: 'x', c, a: 95, b: st.dims.L - 95, h: 2000, bearing: true, openings: [] });
+  const r1 = build(fresh((st) => { st.dims.W = 5000; add(st, 2500); }));
+  assert.equal(r1.info.joistY.filter((y) => y < 2500 + 47.5 && y + 45 > 2500 - 47.5).length, 2);
+  const r2 = build(fresh((st) => { st.dims.W = 6000; st.roof.type = 'gable'; st.roof.pitch = 25; add(st, 3000); }));
+  assert.ok(Math.abs(r2.info.parts[0].Tp - r2.info.zr(3000)) < 0.5);
+  const s3 = fresh((st) => { st.dims.W = 6000; st.roof.type = 'gable'; add(st, 1525); add(st, 4475); });
+  const r3 = build(s3);
+  const ties = r3.members.filter((m) => m.kind === 'tie');
+  const hits = r3.members.filter((m) => m.group.startsWith('b') && ['stud', 'nog'].includes(m.kind)).filter((m) => {
+    const xs = m.shape.poly.map((p) => p[0]), zs = m.shape.poly.map((p) => p[1]);
+    return ties.some((t) => Math.min(...xs) < t.shape.d[1] && Math.max(...xs) > t.shape.d[0] && Math.min(...zs) < t.shape.poly[2][1] && Math.max(...zs) > t.shape.poly[0][1]);
+  });
+  assert.equal(hits.length, 0, `${hits.length} collisions`);
+  const r4 = build(fresh((st) => { st.dims.W = 6000; add(st, 3000); }));
+  assert.ok(r4.members.filter((m) => m.kind === 'rafter').every((m) => m.len <= 6000));
+  assert.ok(r4.warnings.filter((w) => /Krokiew d+ mm jest dłuższa/.test(w)).length <= 1);
+  const s5 = fresh((st) => { st.dims.W = 5000; st.partitions.push({ id: 'n', orient: 'x', c: 2480, a: 95, b: 3006, h: 2000, openings: [] }); });
+  assert.ok(build(s5).warnings.some((w) => /oznacz ją jako nośną/.test(w)));
+});
+
 test('state survives a share link', () => {
   const s = fresh((st) => { st.dims.L = 4200; st.partitions.push({ id: 'p', orient: 'y', c: 2000, a: 95, b: 2405, h: 2000, openings: [] }); });
   assert.deepEqual(decodeState(encodeState(s)), s);

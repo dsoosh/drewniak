@@ -67,6 +67,10 @@ słupki, więc obciążenie z góry musi obejść otwór przez nadproże i słup
 - **Wcięcie krokwi (wrąb)** na oczepie: siedzisko na pełnej szerokości oczepu, głębokość
   ≤ 1/4–1/3 wysokości krokwi. Krokiew mocowana do oczepu łącznikiem krokwiowym albo
   kątownikiem — wiatr podrywa lekkie dachy.
+- **Ściana nośna w środku** skraca przęsło krokwi: oczep na linii spodu krokwi z wrębem jak na
+  ścianie zewnętrznej, pod nią legar podwójny i podpory pod belkami ramy w jej osi. Pod kalenicą
+  oczep na linii kalenicy. W dachu dwuspadowym ściągi muszą przejść przez ścianę między
+  słupkami, bez rygli w ich pasie. Krokiew dłuższą niż handlowa łączy się tylko na ścianie nośnej.
 - **Okap** 25–30 cm chroni ściany i podwalinę przed deszczem. Okap od strony szczytu robią
   łaty wysunięte za skrajne krokwie.
 - **Płyta bitumiczna falista (np. Onduline 2000×950):** fale wzdłuż spadku; zakład boczny
