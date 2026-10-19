@@ -42,8 +42,8 @@ export function build(s) {
   const nT = Math.max(2, Math.ceil((L - BEAM) / s.base.maxSpan) + 1);
   const beamX = [...Array(nT)].map((_, i) => (i * (L - BEAM)) / (nT - 1));
   for (const [y0, side] of [[0, 'przód'], [W - BEAM, 'tył']]) {
-    for (const [x0, x1] of splitEven(0, L, s.stock.b100.len))
-      add({ kind: 'beam', sec: 'b100', len: x1 - x0, group: 'base', name: `Belka podłużna (${side})`, shape: box('xy', x0, y0, x1, y0 + BEAM, 0, BEAM) });
+    for (const [x0, x1] of splitAtSupports(0, L, beamX.map((x) => x + BEAM / 2), s.stock.b100.len))
+      add({ kind: 'beam', sec: 'b100', len: x1 - x0, group: 'base', name: `Belka podłużna (${side})`, note: x1 - x0 < L ? 'styk nad belką poprzeczną' : '', shape: box('xy', x0, y0, x1, y0 + BEAM, 0, BEAM) });
   }
   for (const x0 of beamX)
     add({ kind: 'beam', sec: 'b100', len: W - 2 * BEAM, group: 'base', name: 'Belka poprzeczna', note: 'na wieszakach w belkach podłużnych', shape: box('xy', x0, BEAM, x0 + BEAM, W - BEAM, 0, BEAM) });

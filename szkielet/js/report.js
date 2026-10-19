@@ -15,7 +15,7 @@ export function report(res, s) {
     const stock = s.stock[sec].len;
     const pack = packBars(list, stock, s.kerf);
     const used = list.reduce((t, p) => t + p.len, 0);
-    out.timber.push({ sec, name: SECTIONS[sec].name, stock, count: pack.bars.length, pieces: list.length, bars: pack.bars, tooLong: pack.tooLong, used, waste: pack.bars.length * stock - used });
+    out.timber.push({ sec, name: SECTIONS[sec].name + (sec === 'b100' && stock === 6500 ? ' (połówka belki 13 m)' : ''), stock, count: pack.bars.length, pieces: list.length, bars: pack.bars, tooLong: pack.tooLong, used, waste: pack.bars.length * stock - used });
     addCost(pack.bars.length, s.stock[sec].price);
   }
 

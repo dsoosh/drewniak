@@ -164,6 +164,19 @@ test('rim joists under gable walls and verge boards on the roof', () => {
   assert.ok(r.members.filter((m) => m.name === 'Legar podłogi').every((m) => m.len === 3101 - 90));
 });
 
+test('100×100 bought in 6.5 m pieces, long beams joined over a beam', () => {
+  const s = fresh(), rep = report(build(s), s);
+  const b = rep.timber.find((t) => t.sec === 'b100');
+  assert.equal(b.stock, 6500);
+  assert.equal(b.count, 3);
+  const r = build(fresh((st) => { st.dims.L = 9000; }));
+  const centers = r.info.beamX.map((x) => x + 50);
+  const front = r.members.filter((m) => m.name === 'Belka podłużna (przód)');
+  assert.equal(front.length, 2);
+  assert.ok(centers.some((c) => Math.abs(c - front[0].shape.poly[1][0]) < 1));
+  assert.ok(front.every((m) => m.len <= 6500));
+});
+
 test('state survives a share link', () => {
   const s = fresh((st) => { st.dims.L = 4200; st.partitions.push({ id: 'p', orient: 'y', c: 2000, a: 95, b: 2405, h: 2000, openings: [] }); });
   assert.deepEqual(decodeState(encodeState(s)), s);

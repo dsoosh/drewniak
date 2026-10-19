@@ -56,7 +56,7 @@ const FIELDS = [
   ['Materiał i ceny', [
     ['stock.f45.len', 'Kantówka 45×95 – długość', 'num', { step: 100 }],
     ['stock.l50.len', 'Łata 50×50 – długość', 'num', { step: 100 }],
-    ['stock.b100.len', 'Belka 100×100 – długość', 'num', { step: 100 }],
+    ['stock.b100.len', 'Belka 100×100 – długość', 'num', { step: 100, note: 'skład tnie belki 13 m na pół – sprzedaje po 6,5 m' }],
     ['kerf', 'Rzaz piły', 'num', { step: 1 }],
     ['stock.f45.price', 'Cena 45×95 [zł/szt.]', 'num', { step: 0.01, opt: true }],
     ['stock.l50.price', 'Cena łaty [zł/szt.]', 'num', { step: 0.01, opt: true }],

@@ -37,7 +37,7 @@ export function defaultState() {
     },
     partitions: [],
     stock: {
-      b100: { len: 13000, price: '' },
+      b100: { len: 6500, price: '' },   // sold as halves of 13 m beams
       f45: { len: 6000, price: '' },
       l50: { len: 5400, price: '' },
       osbWall: { name: 'OSB/3 12 mm', w: 1250, h: 2500, price: '' },
