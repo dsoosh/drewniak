@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 export const LAYERS = [
-  ['base', 'Rama 100×100'], ['floor', 'Legary'], ['floorSheet', 'Podłoga OSB'], ['walls', 'Szkielet ścian'],
+  ['base', 'Rama z belek'], ['floor', 'Legary'], ['floorSheet', 'Podłoga OSB'], ['walls', 'Szkielet ścian'],
   ['wallSheet', 'Poszycie z zewnątrz'], ['wallSheetIn', 'Poszycie od środka'], ['roof', 'Krokwie i łaty'],
   ['cover', 'Pokrycie'], ['openings', 'Okna i drzwi'], ['anchors', 'Kotwy gruntowe'],
 ];

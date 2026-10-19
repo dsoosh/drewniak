@@ -99,6 +99,7 @@ export async function makePdf(res, rep, state, img3d) {
   const order = [];
   for (const t of rep.timber) order.push([`${t.name} × ${fmt(t.buyLen)}`, `${t.count} szt.`, `${t.pieces} el., odpad ${(t.waste / 1000).toFixed(1).replace('.', ',')} m`]);
   if (rep.wall) order.push([`${rep.wall.name} na ściany`, `${rep.wall.count} płyt`, `${rep.wall.area.toFixed(1).replace('.', ',')} m² po docięciu`]);
+  if (rep.wallIn) order.push([`${rep.wallIn.name} od środka i ścianki`, `${rep.wallIn.count} płyt`, `${rep.wallIn.area.toFixed(1).replace('.', ',')} m² po docięciu`]);
   order.push([rep.floor.name, `${rep.floor.count} płyt`, `${rep.floor.area.toFixed(1).replace('.', ',')} m²`]);
   for (const c of rep.cover) order.push([c.name, `${c.count} ark.`, `${state.roof.cover.len}×${state.roof.cover.wid}`]);
   for (const e of rep.extras) order.push([e.name, `${e.qty} ${e.unit}`, '']);

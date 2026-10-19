@@ -10,7 +10,7 @@ export function report(res, s) {
 
   const bySec = {};
   for (const m of res.members) (bySec[m.sec] ||= []).push({ len: m.len, label: m.name });
-  for (const sec of ['b100', 'f45', 'l50']) {
+  for (const sec of Object.keys(SECTIONS)) {
     const list = bySec[sec];
     if (!list) continue;
     const stock = s.stock[sec].len, unit = s.stock[sec].unit || null;
@@ -51,10 +51,19 @@ export function report(res, s) {
   out.extras.push({ name: 'Gwoździe do pokrycia', qty: sheetsTotal * cov.nails, unit: 'szt.' });
   if (s.roof.type === 'gable') out.extras.push({ name: 'Gąsiory', qty: Math.ceil(res.roof.Lr / 850), unit: 'szt.' });
   const nSup = res.info.supports.length;
+  // roof bracing: perforated strap crosses on long roofs; struts where a gable is split at the eaves plate
+  if (res.roof.Lr > 6000) {
+    const S = res.roof.slopes[0].S, bay = res.info.rafterSpacing * 4;
+    out.extras.push({ name: 'Taśma perforowana do stężenia połaci (2 krzyże na połać)', qty: Math.ceil((res.roof.slopes.length * 4 * Math.hypot(S, bay)) / 1000), unit: 'm' });
+  }
+  const slides = Object.values(res.walls).reduce((n, d) => n + (d.slide || 0), 0);
+  if (slides) out.extras.push({ name: 'Łącznik przesuwny ścianki pod ściągiem (luz na ugięcie)', qty: slides, unit: 'szt.' });
+  const splitGables = Object.values(res.walls).filter((d) => d.split).length;
+  if (splitGables) out.extras.push({ name: 'Zastrzały szczytu 45×95 ok. 1,5 m (oczep szczytu – ściągi)', qty: splitGables * 2, unit: 'szt.' });
   out.extras.push({ name: 'Kotwy gruntowe pod ramą', qty: nSup, unit: 'szt.' });
   out.extras.push({ name: 'Przekładka z papy na głowicę kotwy', qty: nSup, unit: 'szt.' });
   addCost('Kotwy gruntowe', nSup, 'szt.', s.stock.anchor.price);
-  out.extras.push({ name: 'Wieszaki belek 100×100', qty: res.info.beamX.length * 2, unit: 'szt.' });
+  out.extras.push({ name: `Wieszaki belek ${SECTIONS[s.base.beamSec || 'b100'].name.replace('Belka ', '')}`, qty: res.info.beamX.length * 2, unit: 'szt.' });
   const perim = 2 * (s.dims.L + s.dims.W);
   out.extras.push({ name: 'Kotwy podwalina–rama (co ≤ 1,2 m)', qty: Math.ceil(perim / 1200) + 4, unit: 'szt.' });
   out.extras.push({ name: 'Taśma perforowana na narożniki oczepu', qty: 4, unit: 'szt.' });
@@ -100,7 +109,7 @@ export function facts(res, s) {
     ['Najwyższy punkt', `${Math.round(i.topZ)} nad gruntem`],
     ['Krokwie', `${i.rafterX.length} × co ${Math.round(i.rafterSpacing)}`],
     ['Łaty', `${res.roof.battenRows.map((r) => r.length).join(' + ')} rzędów co ${Math.round(res.roof.slopes[0].battenSpacing)}`],
-    ['Wrąb krokwi', `${Math.round(95 * i.sn)} mm`],
+    ['Wrąb krokwi', `${Math.round(i.notch)} mm`],
   ];
   if (i.ridge) list.splice(4, 0, ['Kalenica (spód krokwi)', `${Math.round(i.ridge - i.zf)} od podłogi`]);
   return list;

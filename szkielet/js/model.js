@@ -3,7 +3,10 @@
 
 export const SECTIONS = {
   b100: { name: 'Belka 100×100', w: 100, h: 100 },
+  b150: { name: 'Belka 150×150', w: 150, h: 150 },
   f45: { name: 'Kantówka 45×95', w: 45, h: 95 },
+  f145: { name: 'Kantówka 45×145', w: 45, h: 145 },
+  f195: { name: 'Kantówka 45×195', w: 45, h: 195 },
   l50: { name: 'Łata 50×50', w: 50, h: 50 },
 };
 
@@ -11,7 +14,7 @@ export const SECTIONS = {
 // tongue-and-groove floor sheets cost about 5% more.
 export const OSB_PRICES = { 12: 69, 15: 80, 18: 98, 22: 124, 25: 145, 30: 175 };
 export const osbPrice = (t, floor = false) => Math.round((OSB_PRICES[t] || 0) * (floor ? 1.05 : 1));
-export const PRICE_DEFAULTS = { b100: 189, f45: 69, l50: 22, cover: 45, anchor: 135 };
+export const PRICE_DEFAULTS = { b100: 189, b150: 425, f45: 69, f145: 105, f195: 142, l50: 22, cover: 45, anchor: 135 };
 export const ANCHOR_RANGE = [120, 150];
 
 // Allowed ranges of numeric parameters [min, max]; one source for normalisation, form inputs
@@ -22,7 +25,7 @@ export const LIMITS = {
   'roof.rafterMax': [300, 1200], 'roof.battenMax': [200, 600],
   'walls.nogStep': [300, 1500], 'walls.doubleFrom': [400, 3000], 'walls.sheathBelow': [0, 100],
   'base.maxSpan': [600, 3000], 'base.anchorMax': [800, 2500], 'floor.joistMax': [300, 900],
-  'stock.f45.len': [2000, 13000], 'stock.l50.len': [2000, 13000], 'stock.b100.len': [2000, 13000],
+  'stock.f45.len': [2000, 13000], 'stock.f145.len': [2000, 13000], 'stock.f195.len': [2000, 13000], 'stock.l50.len': [2000, 13000], 'stock.b100.len': [2000, 13000],
   'loads.floor': [1.0, 10], 'loads.roof': [0.9, 5],
   'roof.cover.len': [500, 4000], 'roof.cover.wid': [300, 2000], 'roof.cover.lapL': [50, 500],
   'roof.cover.lapW': [0, 300], 'roof.cover.nails': [0, 60], kerf: [0, 10],
@@ -45,12 +48,12 @@ export function defaultState() {
   return {
     v: 1,
     dims: { L: 3101, W: 2500 },
-    base: { maxSpan: 1500, anchorMax: 2500 },
+    base: { maxSpan: 1500, anchorMax: 2500, beamSec: 'b100' },
     floor: { joistMax: 600, sheetT: 30, splitJoists: false },
     walls: { h0: 2350, studMax: 625, nogStep: 800, nogStagger: true, doubleFrom: 1200, sheatheIn: false, sheathT: 12, sheathBelow: 50, sheathe: true },
     roof: {
       type: 'mono', pitch: 13.9, highSide: 'back', ovhEave: 300, ovhGable: 300,
-      rafterMax: 450, battenMax: 420, battenSec: 'l50', ties: true, splice: 'scab',
+      rafterMax: 450, battenMax: 420, battenSec: 'l50', ties: true, splice: 'scab', rafterSec: 'f45',
       cover: { name: 'Płyta bitumiczna falista', len: 2000, wid: 950, lapL: 200, lapW: 95, nails: 20 },
       clear: [],
     },
@@ -63,7 +66,10 @@ export function defaultState() {
     partitions: [],
     stock: {
       b100: { len: 13000, unit: 6500, price: 189 },   // 13 m beams cut to order, sold and priced in 6.5 m halves
+      b150: { len: 13000, unit: 6500, price: 425 },
       f45: { len: 6000, price: 69 },
+      f145: { len: 6000, price: 105 },
+      f195: { len: 6000, price: 142 },
       l50: { len: 5400, price: 22 },
       osbWall: { name: 'OSB/3 12 mm', w: 1250, h: 2500, price: '' },    // '' = price from OSB_PRICES
       osbFloor: { name: 'OSB/3 30 mm pióro-wpust', w: 1250, h: 2500, price: '' },
@@ -108,7 +114,9 @@ export function normalize(s) {
   // older saves counted 100×100 as separate 6.5 m pieces
   if (!o.stock.b100.unit || o.stock.b100.unit === 6500 && o.stock.b100.len === 6500) { o.stock.b100.len = 13000; o.stock.b100.unit = 6500; }
   // older saves had empty prices: fall back to the price list
-  for (const k of ['b100', 'f45', 'l50', 'cover', 'anchor']) if (o.stock[k].price === '' || o.stock[k].price === null) o.stock[k].price = PRICE_DEFAULTS[k];
+  for (const k of ['b100', 'b150', 'f45', 'f145', 'f195', 'l50', 'cover', 'anchor']) if (o.stock[k].price === '' || o.stock[k].price === null) o.stock[k].price = PRICE_DEFAULTS[k];
+  if (!['f45', 'f145', 'f195'].includes(o.roof.rafterSec)) o.roof.rafterSec = 'f45';
+  if (!['b100', 'b150'].includes(o.base.beamSec)) o.base.beamSec = 'b100';
   if (!OSB_PRICES[o.walls.sheathT]) o.walls.sheathT = 12;
   if (![18, 22, 25, 30].includes(+o.floor.sheetT)) o.floor.sheetT = 30;
   o.stock.osbWall.name = `OSB/3 ${o.walls.sheathT} mm`;

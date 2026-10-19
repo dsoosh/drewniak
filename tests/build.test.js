@@ -165,9 +165,20 @@ test('long building staggers plate and batten joints and warns', () => {
   for (let i = 1; i < ends.length; i++) assert.notEqual(Math.round(ends[i]), Math.round(ends[i - 1]));
 });
 
+test('ties: checked with a ceiling when they can carry one, partitions kept below them', () => {
+  const house = build(EXAMPLES.find((e) => e.id === 'dom70').make());
+  assert.ok(house.checks.some((c) => c.name.startsWith('Ściąg 45×195 (ciężar własny + sufit') && c.ok));
+  const shop = build(EXAMPLES.find((e) => e.id === 'warsztat').make());
+  assert.ok(shop.checks.some((c) => c.name.startsWith('Ściąg 45×95 (tylko ciężar własny') && c.ok));
+  const hi = EXAMPLES.find((e) => e.id === 'dom70').make();
+  assert.ok(report(house, EXAMPLES.find((e) => e.id === 'dom70').make()).extras.some((x) => x.name.startsWith('Łącznik przesuwny')));
+  hi.partitions[0].h = 2585;
+  assert.ok(build(hi).warnings.some((w) => w.includes('za blisko ściągów')));
+});
+
 test('wide gable roof: tie lapped and warned, more mid supports', () => {
   const r = build(fresh((s) => { s.dims.L = 6000; s.dims.W = 6500; s.roof.type = 'gable'; }));
-  assert.ok(r.warnings.some((w) => w.includes('legary poddasza łączone')));
+  assert.ok(r.warnings.some((w) => w.includes('Ściągi łączone')));
   assert.ok(r.members.filter((m) => m.kind === 'tie').every((m) => m.len <= 6000));
   assert.ok(r.info.midSpan <= 2500);
 });
@@ -435,6 +446,26 @@ test('review 7: rafters never lapped, long ties lapped with bolts when none, tie
   const studs = g.members.filter((m) => m.wall && m.wall.startsWith('b') && ['stud', 'nog'].includes(m.kind));
   const hit = studs.filter((m) => scabs.some((c) => { const xs = m.shape.poly.map((p) => p[0]); return Math.min(...xs) < c.shape.d[1] && Math.max(...xs) > c.shape.d[0] && Math.min(...m.shape.poly.map((p) => p[1])) < c.shape.poly[2][1] && Math.max(...m.shape.poly.map((p) => p[1])) > c.shape.poly[0][1]; }));
   assert.equal(hit.length, 0);
+});
+
+test('sections: deep rafters, 150×150 frame, header sizing, gable split', () => {
+  const g = (f) => build(fresh((st) => { st.dims.L = 6000; st.dims.W = 7000; st.roof.type = 'gable'; st.roof.pitch = 30; st.walls.h0 = 2600; f && f(st); }));
+  const deep = g((st) => { st.roof.rafterSec = 'f195'; st.roof.rafterMax = 600; });
+  assert.ok(deep.checks.find((c) => c.name.startsWith('Krokiew')).ok);
+  assert.equal(deep.suggestions.length, 0);
+  assert.ok(deep.members.filter((m) => m.kind === 'rafter').every((m) => m.sec === 'f195'));
+  const b100 = g(), b150 = g((st) => { st.base.beamSec = 'b150'; });
+  assert.equal(b150.info.zf - b100.info.zf, 50);
+  assert.ok(b150.members.filter((m) => m.kind === 'beam').every((m) => m.sec === 'b150'));
+  const door = g((st) => { st.openings.front = [{ id: 'd', type: 'door', U: 1500, w: 2400, h: 2100, sill: 0 }]; });
+  const hd = door.members.filter((m) => m.wall === 'front' && m.kind === 'header');
+  assert.ok(hd.every((m) => m.sec === 'f145' || m.sec === 'f195'), hd.map((m) => m.sec).join());
+  assert.ok(door.checks.filter((c) => c.name.startsWith('Nadproże')).every((c) => c.ok));
+  const studs = b100.members.filter((m) => (m.wall === 'left' || m.wall === 'right') && ['stud', 'king', 'cripple'].includes(m.kind));
+  assert.ok(studs.every((m) => m.len <= 3000), Math.max(...studs.map((m) => m.len)));
+  assert.ok(b100.walls.left.split > 0);
+  const tall = build(fresh((st) => { st.walls.h0 = 3300; }));
+  assert.ok(tall.warnings.some((w) => /dłuższe niż 3 m/.test(w)));
 });
 
 test('state survives a share link', () => {

@@ -43,31 +43,31 @@ export const EXAMPLES = [
     }),
   },
   {
-    id: 'dom70', name: 'Dom letniskowy 70 m² (stan surowy)',
-    note: 'Parterowy dom 10 × 7 m, dach dwuspadowy 30°, dwie ściany nośne, korytarz, cztery pokoje. Ściany 95 mm to stan surowy domu letniskowego – dom całoroczny potrzebuje ok. 200 mm izolacji (WT 2021). Dom na zgłoszenie i tak wymaga projektu budowlanego – to tylko szacunek materiału.',
+    id: 'dom70', name: 'Dom letniskowy 70 m² (konstrukcja)',
+    note: 'Parterowy dom 10 × 7 m, dach dwuspadowy 30°: krokwie i ściągi 45×195, ścianki 30 mm pod ściągami na łącznikach przesuwnych (poddasze nieużytkowe), rama 150×150, szczyty dzielone na oczepie, salon z wejściem, dwa pokoje, kuchnia, łazienka, sypialnia. Ściany 95 mm to stan surowy domu letniskowego (dom całoroczny: ok. 200 mm izolacji, WT 2021). Koszt obejmuje tylko konstrukcję i płyty; dom na zgłoszenie i tak wymaga projektu budowlanego.',
     make: () => base((s) => {
       s.dims = { L: 10000, W: 7000 };
       s.walls.h0 = 2600;
-      s.walls.sheatheIn = true;
       s.walls.sheathT = 15;
-      s.roof = { ...s.roof, type: 'gable', pitch: 30, ovhEave: 400, ovhGable: 300, ties: true, clear: [] };
+      s.walls.doubleFrom = 1000;
+      s.roof = { ...s.roof, type: 'gable', pitch: 30, ovhEave: 400, ovhGable: 300, ties: true, rafterSec: 'f195', rafterMax: 600, splice: 'scab', clear: [] };
       s.floor.sheetT = 30;
       s.loads.floor = 2.0;
-      s.base.anchorMax = 1500;
-      s.base.maxSpan = 1500;
-      const win = (id, U) => ({ id, type: 'window', U, w: 1200, h: 1200, sill: 900 });
+      s.base = { ...s.base, beamSec: 'b150', anchorMax: 1500, maxSpan: 1500 };
+      const win = (id, U, w = 1200, h = 1200, sill = 900) => ({ id, type: 'window', U, w, h, sill });
       s.openings = {
-        front: [win('d1', 1000), { id: 'dd', type: 'door', U: 4500, w: 1000, h: 2100, sill: 0 }, win('d2', 7600)],
-        back: [win('d3', 1000), win('d4', 4400), win('d5', 7600)],
-        left: [win('d6', 2900)],
-        right: [win('d7', 2900)],
+        front: [win('f1', 1000), { id: 'fd', type: 'door', U: 4500, w: 1000, h: 2100, sill: 0 }, win('f2', 7600)],
+        back: [win('b1', 1300), win('b2', 4700, 600, 600, 1500), win('b3', 7500)],
+        left: [win('l1', 1500, 900)],
+        right: [win('r1', 4600, 900)],
       };
       const door = (id, U) => ({ id, type: 'door', U, w: 900, h: 2050, sill: 0 });
       s.partitions = [
-        { id: 'n1', orient: 'x', c: 2400, a: 95, b: 9905, h: 2000, sheathe: 'both', bearing: true, openings: [door('nd1', 1500), door('nd2', 5600)] },
-        { id: 'n2', orient: 'x', c: 4600, a: 95, b: 9905, h: 2000, sheathe: 'both', bearing: true, openings: [door('nd3', 1500), door('nd4', 7700)] },
-        { id: 'p1', orient: 'y', c: 3500, a: 95, b: 2352.5, h: 2600, sheathe: 'both', openings: [] },
-        { id: 'p2', orient: 'y', c: 7200, a: 4647.5, b: 6905, h: 2600, sheathe: 'both', openings: [] },
+        { id: 'n1', orient: 'x', c: 3500, a: 95, b: 9905, h: 2570, sheathe: 'none', openings: [{ id: 'nd1', type: 'door', U: 3005, w: 800, h: 2050, sill: 0 }, door('nd2', 4205), door('nd3', 5905)] },
+        { id: 'p1', orient: 'y', c: 3000, a: 95, b: 3452.5, h: 2570, sheathe: 'none', openings: [door('pd1', 1500)] },
+        { id: 'p2', orient: 'y', c: 7000, a: 95, b: 3452.5, h: 2570, sheathe: 'none', openings: [door('pd2', 1500)] },
+        { id: 'p3', orient: 'y', c: 4000, a: 3547.5, b: 6905, h: 2570, sheathe: 'none', openings: [] },
+        { id: 'p4', orient: 'y', c: 5500, a: 3547.5, b: 6905, h: 2570, sheathe: 'none', openings: [] },
       ];
     }),
   },

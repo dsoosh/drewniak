@@ -98,9 +98,10 @@ export function elevationSVG(res, state, id, opt) {
   let s = '';
   s += `<line x1="${f(vb[0])}" y1="0" x2="${f(vb[0] + vb[2])}" y2="0" stroke="${P.muted}" stroke-width="${f(fs / 10)}"/>`;
   if (!isPart) {
-    s += poly([[U0, 0], [U1, 0], [U1, 100], [U0, 100]], M, `fill="${P.beam}" stroke="${P.ink}" stroke-width="1.5" vector-effect="non-scaling-stroke"`);
-    s += poly([[U0, 100], [U1, 100], [U1, 195], [U0, 195]], M, `fill="${P.joist}" stroke="${P.ink}" stroke-width="1" vector-effect="non-scaling-stroke"`);
-    s += poly([[U0, 195], [U1, 195], [U1, zf], [U0, zf]], M, `fill="${P.floor}" stroke="${P.ink}" stroke-width="1" vector-effect="non-scaling-stroke"`);
+    const bh = res.info.beam || 100;
+    s += poly([[U0, 0], [U1, 0], [U1, bh], [U0, bh]], M, `fill="${P.beam}" stroke="${P.ink}" stroke-width="1.5" vector-effect="non-scaling-stroke"`);
+    s += poly([[U0, bh], [U1, bh], [U1, bh + 95], [U0, bh + 95]], M, `fill="${P.joist}" stroke="${P.ink}" stroke-width="1" vector-effect="non-scaling-stroke"`);
+    s += poly([[U0, bh + 95], [U1, bh + 95], [U1, zf], [U0, zf]], M, `fill="${P.floor}" stroke="${P.ink}" stroke-width="1" vector-effect="non-scaling-stroke"`);
   } else {
     s += `<line x1="${f(U0 - 200)}" y1="${f(-zf)}" x2="${f(U1 + 200)}" y2="${f(-zf)}" stroke="${P.floor}" stroke-width="${f(fs / 4)}"/>`;
   }

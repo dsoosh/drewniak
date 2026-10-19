@@ -9,7 +9,8 @@ import { SECTIONS, WALL_IDS, WALL_NAMES } from './model.js';
 
 const T = 45;          // timber thickness
 const D = 95;          // timber depth = wall depth
-const BEAM = 100;      // base beam section
+let BEAM = 100;        // base beam section, set per build from base.beamSec
+let RD = 95;           // rafter / tie depth, set per build from roof.rafterSec
 const E = 11000;       // C24 mean modulus, MPa
 const SHEET_W = 1250, SHEET_H = 2500;
 const R = Math.round;
@@ -19,12 +20,15 @@ export function build(s) {
   const { L, W } = s.dims;
   const out = { members: [], wallSheets: [], floorSheets: [], cover: [], checks: [], warnings: [], walls: {}, info: {} };
   const a = (s.roof.pitch * Math.PI) / 180, tn = Math.tan(a), cs = Math.cos(a), sn = Math.sin(a);
+  BEAM = SECTIONS[s.base.beamSec || 'b100'].h;
+  RD = SECTIONS[s.roof.rafterSec || 'f45'].h;
+  const BSEC = s.base.beamSec || 'b100', RSEC = s.roof.rafterSec || 'f45';
   const zf = BEAM + D + s.floor.sheetT;          // top of floor
   const h0 = s.walls.h0;
   const mono = s.roof.type === 'mono', backHigh = s.roof.highSide !== 'front';
 
   // Birdsmouth seat: full plate width, but the notch may not cut deeper than 1/3 of the rafter.
-  const sw = Math.min(D, D / 3 / Math.max(sn, EPS));
+  const sw = Math.min(D, RD / 3 / Math.max(sn, EPS));
   // Underside of the rafters as a function of y; it meets each wall plate at the uphill end of the seat.
   const zr = (y) => {
     if (!mono) return zf + h0 + (Math.min(y, W - y) - sw) * tn;
@@ -33,7 +37,7 @@ export function build(s) {
   const Tf = mono ? (backHigh ? zr(sw) : zr(D - sw)) : zr(sw);
   const Tb = mono ? (backHigh ? zr(W - D + sw) : zr(W - sw)) : zr(W - sw);
   const pv = T / cs;                               // vertical thickness of a sloped plate
-  Object.assign(out.info, { zf, Tf, Tb, a, tn, cs, sn, pv, zr, sw, notch: sw * sn, ridge: mono ? null : zr(W / 2) });
+  Object.assign(out.info, { beam: BEAM, rafterDepth: RD, zf, Tf, Tb, a, tn, cs, sn, pv, zr, sw, notch: sw * sn, ridge: mono ? null : zr(W / 2) });
   if (sw < (2 * D) / 3 - 0.5) out.warnings.push(`Przy spadku ${s.roof.pitch}° siedzisko krokwi na oczepie ma tylko ${R(sw)} mm (wrąb ograniczony do 1/3 krokwi) – mocuj każdą krokiew łącznikiem krokwiowym albo zmniejsz spadek.`);
 
   const add = (m) => { m.len = R(m.len); out.members.push(m); return m; };
@@ -64,13 +68,13 @@ export function build(s) {
   const beamX = [...Array(nT)].map((_, i) => (i * (L - BEAM)) / (nT - 1));
   const anchorX = beamX.filter((_, i) => i % kT === 0);
   for (const [y0, side] of [[0, 'przód'], [W - BEAM, 'tył']]) {
-    for (const [x0, x1] of splitAtSupports(0, L, anchorX.map((x) => x + BEAM / 2), s.stock.b100.len))
-      add({ kind: 'beam', sec: 'b100', len: x1 - x0, group: 'base', name: `Belka podłużna (${side})`, note: x1 - x0 < L ? 'styk nad kotwą' : '', shape: box('xy', x0, y0, x1, y0 + BEAM, 0, BEAM) });
+    for (const [x0, x1] of splitAtSupports(0, L, anchorX.map((x) => x + BEAM / 2), s.stock[BSEC].len))
+      add({ kind: 'beam', sec: BSEC, len: x1 - x0, group: 'base', name: `Belka podłużna (${side})`, note: x1 - x0 < L ? 'styk nad kotwą' : '', shape: box('xy', x0, y0, x1, y0 + BEAM, 0, BEAM) });
   }
   const transverse = () => {
-    const runs = splitAtSupports(BEAM, W - BEAM, midY, s.stock.b100.len);
+    const runs = splitAtSupports(BEAM, W - BEAM, midY, s.stock[BSEC].unit || s.stock[BSEC].len);
     for (const x0 of beamX) for (const [y0, y1] of runs)
-      add({ kind: 'beam', sec: 'b100', len: y1 - y0, group: 'base', name: 'Belka poprzeczna', note: runs.length > 1 ? 'na wieszakach, styk nad kotwą' : 'na wieszakach w belkach podłużnych', shape: box('xy', x0, y0, x0 + BEAM, y1, 0, BEAM) });
+      add({ kind: 'beam', sec: BSEC, len: y1 - y0, group: 'base', name: 'Belka poprzeczna', note: runs.length > 1 ? 'na wieszakach, styk nad kotwą' : 'na wieszakach w belkach podłużnych', shape: box('xy', x0, y0, x0 + BEAM, y1, 0, BEAM) });
   };
   // anchor lines across the width: both longitudinal beams, every bearing wall, and intermediate
   // lines wherever a gap exceeds anchorMax (those anchors sit under the transverse beams)
@@ -165,7 +169,15 @@ export function build(s) {
   for (const id of WALL_IDS) {
     const def = { ...defs[id], zb: zf, pv, a, name: WALL_NAMES[id], trib: trib[id] };
     out.walls[id] = def;
-    frameWall(def, s.openings[id], extra[id], s, out);
+    const eaveTop = Math.min(def.top(def.A), def.top(def.B));
+    const peak = Math.max(def.top(def.A), def.top(def.B), ...def.kinks.map(def.top));
+    if (!def.flat && peak - pv - (zf + T) > 3000) {
+      // lower wall up to the eaves with a double top plate, gable triangle framed on top of it
+      frameWall({ ...def, flat: true, top: () => eaveTop }, s.openings[id], extra[id], s, out);
+      if ((s.openings[id] || []).some((o) => zf + o.sill + o.h > eaveTop - 2 * T - 50)) out.warnings.push(`${def.name}: otwór sięga ponad oczep szczytu – obniż go poniżej ${R(eaveTop - 2 * T - zf - 50)} mm.`);
+      frameWall({ ...def, zb: eaveTop, name: `${def.name} – szczyt`, triangle: true }, [], [], s, out);
+      def.split = eaveTop;
+    } else frameWall(def, s.openings[id], extra[id], s, out);
     if (s.walls.sheathe) {
       const zS = BEAM - s.walls.sheathBelow;
       // eaves walls: the sheet reaches the top plate and is notched around every rafter
@@ -196,14 +208,31 @@ export function build(s) {
   const bearingTrib = (c) => { const i = supAll.indexOf(c); return 1.25 * (((supAll[i + 1] ?? c) - (supAll[i - 1] ?? c)) / 2); };
   // gable ties pass through bearing walls: keep studs and noggings out of their way
   const tieX = !mono && s.roof.ties ? (() => { const n = Math.max(2, Math.ceil((L - T) / s.roof.rafterMax - EPS) + 1); return [...Array(n)].map((_, i) => (i * (L - T)) / (n - 1)).slice(1, -1).map((x) => [x, x + 3 * T]); })() : [];
+  // tie deflection at y (simply supported between plates and bearing walls), same load as its check
+  const tieSup = [D / 2, W - D / 2, ...bearing.map((p) => p.c)].sort((p, q) => p - q);
+  const tieDefl = (y) => {
+    const k = tieSup.findIndex((v, j) => j > 0 && y <= v);
+    if (k < 1) return 0;
+    const l = tieSup[k] - tieSup[k - 1], x = y - tieSup[k - 1], ei = 11000 * ((T * RD ** 3) / 12);
+    const qc = (0.3 * s.roof.rafterMax) / 1000 + 0.05;
+    const q = (5 * qc * l ** 4) / (384 * ei) <= l / 300 ? qc : 0.05;
+    return (q * x * (l ** 3 - 2 * l * x * x + x ** 3)) / (24 * ei);
+  };
   parts.forEach((p, i) => {
     const def = { ...pDefs[i], pv, a, name: p.bearing ? `Ściana nośna ${i + 1}` : `Ścianka ${i + 1}`, trib: p.bearing ? bearingTrib(p.c) : 0 };
     out.walls[p.id] = def;
     const ys = p.orient === 'x' ? [p.c - D / 2, p.c + D / 2] : [p.a, p.b, ...(mono || p.a > W / 2 || p.b < W / 2 ? [] : [W / 2])];
     if (!p.bearing && zf + p.h > Math.min(...ys.map(zr)) + 1) out.warnings.push(`${def.name}: wyższa niż spód krokwi w tym miejscu – obniż ją.`);
+    else if (!p.bearing && !mono && s.roof.ties) {
+      // the gap under the ties must exceed their deflection over the partition (+5 mm)
+      const yy = p.orient === 'x' ? [p.c] : [...Array(21)].map((_, j) => p.a + ((p.b - p.a) * j) / 20);
+      const gap = Math.max(10, Math.ceil(Math.max(...yy.map(tieDefl))) + 5);
+      if (zf + p.h > Tf - gap) out.warnings.push(`${def.name}: za blisko ściągów – ugną się na nią; zostaw ${gap} mm luzu (wysokość do ${R(Tf - gap - zf)} mm) albo zrób z niej ścianę nośną.`);
+      else if (zf + p.h > Tf - 100) def.slide = p.orient === 'x' ? Math.max(2, Math.ceil((L - T) / s.roof.rafterMax - EPS) + 1) : Math.ceil((p.b - p.a) / 600) + 1;
+    }
     if (p.bearing && tieX.length) {
-      def.tieZone = { us: tieX.map(([x0, x1]) => [x0 - p.a, x1 - p.a]), z0: Tf - 5, z1: Tf + D + 5 };
-      if (p.Tp - 2 * T < Tf + D + 5) out.warnings.push(`${def.name}: oczep ściany nośnej wypada na wysokości ściągów – przesuń ścianę bliżej kalenicy.`);
+      def.tieZone = { us: tieX.map(([x0, x1]) => [x0 - p.a, x1 - p.a]), z0: Tf - 5, z1: Tf + RD + 5 };
+      if (p.Tp - 2 * T < Tf + RD + 5) out.warnings.push(`${def.name}: oczep ściany nośnej wypada na wysokości ściągów – przesuń ścianę bliżej kalenicy.`);
     }
     if (p.sheathe && p.sheathe !== 'none') def.seamBase = zf;
     frameWall(def, p.openings, extra[p.id], s, out);
@@ -409,18 +438,21 @@ function frameWall(def, openings, extraStuds, s, out) {
       const reaction = (q * span) / 2 / 1000;   // kN at each end
       if ((o.layers === 1 ? d1 : d2) > lim || reaction > BRACKET_KN) single = false;
       else {
-        o.brackets = reaction > SCREW_KN * o.layers;
+        o.brackets = reaction > SCREW_KN * o.layers || (o.type === 'door' && q > 0);
         o.edge = false; o.hh = o.layers * T; o.span = span; o.d = o.layers === 1 ? d1 : d2; o.lim = lim;
       }
     }
     o.single = single;
     if (!single) {
       o.reuse = [];
-      const span = o.w + T, lim = span / 300, dFlat = defl(span, Ih(2)), dEdge = defl(span, 2 * ((T * D ** 3) / 12));
-      o.edge = o.w > 1200 || dFlat > lim;
-      o.layers = 2; o.hh = o.edge ? D : 2 * T; o.span = span; o.d = o.edge ? dEdge : dFlat; o.lim = lim;
+      // the smallest header that passes: 2×45×95 flat, then 2×45×95 / 145 / 195 on edge
+      const span = o.w + T, lim = span / 300;
+      const cands = [...(o.w <= 1200 ? [{ edge: false, h: 2 * T, d: defl(span, Ih(2)), sec: 'f45' }] : []),
+        ...[[95, 'f45'], [145, 'f145'], [195, 'f195']].map(([h, sec]) => ({ edge: true, h, sec, d: defl(span, 2 * ((T * h ** 3) / 12)) }))];
+      const pick = cands.find((c) => c.d <= lim) || cands[cands.length - 1];
+      o.edge = pick.edge; o.hsec = pick.sec; o.layers = 2; o.hh = pick.h; o.span = span; o.d = pick.d; o.lim = lim;
     } else for (const u0 of o.newSides) sideStuds.push(u0);
-    if (q > 0) out.checks.push({ name: `Nadproże ${o.edge ? '2×45×95 na sztorc' : o.layers === 1 ? '45×95 płasko' : '2×45×95 płasko'}, ${name.toLowerCase()} ${o.w}`, span: R(o.span), d: o.d, lim: o.lim, ok: o.d <= o.lim, hint: 'węższy otwór albo nadproże z belki 100×100 lub klejonki' });
+    if (q > 0) out.checks.push({ name: `Nadproże ${o.edge ? `2×${SECTIONS[o.hsec].name.replace('Kantówka ', '')} na sztorc` : o.layers === 1 ? '45×95 płasko' : '2×45×95 płasko'}, ${name.toLowerCase()} ${o.w}`, span: R(o.span), d: o.d, lim: o.lim, ok: o.d <= o.lim, hint: 'węższy otwór albo nadproże z belki 100×100 lub klejonki' });
     if (o.brackets) out.info.headerBrackets = (out.info.headerBrackets || 0) + 4;
     const sideL = o.single ? o.leftU : o.o0 - 2 * T, sideR = o.single ? o.rightU + T : o.o1 + 2 * T;
     if (!o.reuse.some((x) => x.kind === 'end') && (sideL < A + (def.long ? 2 * T : T) - 1 || sideR > B - (def.long ? 2 * T : T) + 1))
@@ -451,6 +483,8 @@ function frameWall(def, openings, extraStuds, s, out) {
     if (o && f.kind === 'extra') out.warnings.push(`${name}: ścianka działowa dochodzi do otworu – przesuń ściankę albo otwór.`);
     if (o && f.kind !== 'end') continue;
     const tf = ut;
+    if (Math.max(tf(f.u0), tf(f.u0 + T)) - (zb + T) < 60) continue;
+    if (studLen(f.u0, f.u0 + T, zb + T, tf) > 3000 && !def.warnedLong) { def.warnedLong = true; out.warnings.push(`${name}: słupki dłuższe niż 3 m – wyboczenie i wiatr; podziel ścianę na oczepie albo daj słupki 45×145.`); }
     push('stud', 'f45', stud(f.u0, f.u0 + T, zb + T, tf), studLen(f.u0, f.u0 + T, zb + T, tf), f.kind === 'end' ? 'Słupek narożny' : ops.some((o) => o.reuse.includes(f)) ? 'Słupek (bok otworu)' : 'Słupek', slopeNote);
     verts.push([f.u0, f.u0 + T, zb + T, tf]);
   }
@@ -477,8 +511,8 @@ function frameWall(def, openings, extraStuds, s, out) {
         verts.push([u0, u0 + T, zb + T, () => o.ot]);
       }
       if (o.edge) {
-        push('header', 'f45', rect(o.o0 - T, o.o1 + T, o.ot, o.ot + D), o.w + 2 * T, 'Nadproże', 'na sztorc, 2 szt. z przekładką 5 mm', [0, T]);
-        push('header', 'f45', rect(o.o0 - T, o.o1 + T, o.ot, o.ot + D), o.w + 2 * T, 'Nadproże', 'na sztorc, 2 szt. z przekładką 5 mm', [D - T, D]);
+        push('header', o.hsec, rect(o.o0 - T, o.o1 + T, o.ot, o.ot + o.hh), o.w + 2 * T, 'Nadproże', 'na sztorc, 2 szt. z przekładką 5 mm', [0, T]);
+        push('header', o.hsec, rect(o.o0 - T, o.o1 + T, o.ot, o.ot + o.hh), o.w + 2 * T, 'Nadproże', 'na sztorc, 2 szt. z przekładką 5 mm', [D - T, D]);
       } else {
         push('header', 'f45', rect(o.o0 - T, o.o1 + T, o.ot, o.ot + T), o.w + 2 * T, 'Nadproże (dolna warstwa)', 'płasko');
         push('header', 'f45', rect(o.o0 - T, o.o1 + T, o.ot + T, o.ot + 2 * T), o.w + 2 * T, 'Nadproże (górna warstwa)', 'płasko');
@@ -627,7 +661,8 @@ function buildRoof(s, out, g) {
   const { L, W } = s.dims;
   const r = s.roof, o = r.ovhEave, oG = r.ovhGable;
   const { zr, Tf, Tb, a, cs, sn, mono, backHigh, bearing } = g;
-  const zt = (y) => zr(y) + D / cs;
+  const RSEC = s.roof.rafterSec || 'f45';
+  const zt = (y) => zr(y) + RD / cs;
   const n = Math.max(2, Math.ceil((L - T) / r.rafterMax - EPS) + 1);
   const rx = [...Array(n)].map((_, i) => (i * (L - T)) / (n - 1));
   out.info.rafterX = rx;
@@ -649,12 +684,12 @@ function buildRoof(s, out, g) {
   const halves = mono ? [[-o, W + o]] : [[-o, W / 2], [W / 2, W + o]];
   // tie section between y0 and y1, its top cut along the rafter top near the eaves
   const tiePoly = (y0, y1) => {
-    const top = (y) => Math.min(Tf + D, zt(y));
+    const top = (y) => Math.min(Tf + RD, zt(y));
     const ys = [y0, y1];
     for (const y of [D, W - D, W / 2]) if (y > y0 && y < y1) ys.push(y);
     // where the rafter top crosses the tie top
     for (const [a, b] of [[0, W / 2], [W / 2, W]]) {
-      const f = (y) => zt(y) - (Tf + D);
+      const f = (y) => zt(y) - (Tf + RD);
       if (f(a) * f(b) < 0) { let lo = a, hi = b; for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (f(lo) * f(m) <= 0) hi = m; else lo = m; } if (lo > y0 && lo < y1) ys.push(lo); }
     }
     ys.sort((p, q) => p - q);
@@ -688,16 +723,16 @@ function buildRoof(s, out, g) {
     const side = x0 < T ? 1 : -1;
     if (c === undefined) {
       if ((y1 - y0) / cs > stock) tooLong = Math.max(tooLong, (y1 - y0) / cs);
-      out.members.push({ kind: 'rafter', sec: 'f45', len: R((y1 - y0) / cs), group: 'roof', name: 'Krokiew', note: `wcięcie ${notch} mm, końce pionowo${mono ? '' : ', przy kalenicy pod kątem'}`, shape: { plane: 'yz', poly: rafterPoly(y0, y1), d: [x0, x0 + T] } });
+      out.members.push({ kind: 'rafter', sec: RSEC, len: R((y1 - y0) / cs), group: 'roof', name: 'Krokiew', note: `wcięcie ${notch} mm, końce pionowo${mono ? '' : ', przy kalenicy pod kątem'}`, shape: { plane: 'yz', poly: rafterPoly(y0, y1), d: [x0, x0 + T] } });
       continue;
     }
     splices.rafters++;
     runsAt(y0, y1, c, rc.m).forEach(([p, q], k) => {
       const dx = rc.m === 'lap' && k === 1 ? side * T : 0;
-      out.members.push({ kind: 'rafter', sec: 'f45', len: R((q - p) / cs), group: 'roof', name: 'Krokiew (część)', note: `wcięcie ${notch} mm, ${SPLICE_NOTE[rc.m]}`, shape: { plane: 'yz', poly: rafterPoly(p, q), d: [x0 + dx, x0 + dx + T] } });
+      out.members.push({ kind: 'rafter', sec: RSEC, len: R((q - p) / cs), group: 'roof', name: 'Krokiew (część)', note: `wcięcie ${notch} mm, ${SPLICE_NOTE[rc.m]}`, shape: { plane: 'yz', poly: rafterPoly(p, q), d: [x0 + dx, x0 + dx + T] } });
     });
     if (rc.m === 'scab') for (const d0 of [x0 - T, x0 + T])
-      out.members.push({ kind: 'scab', sec: 'f45', len: LAP, group: 'roof', name: 'Nakładka styku krokwi', note: 'po obu stronach styku, 6 gwoździ na stronę', shape: { plane: 'yz', poly: rafterPoly(c - LAP / 2, c + LAP / 2), d: [d0, d0 + T] } });
+      out.members.push({ kind: 'scab', sec: RSEC, len: LAP, group: 'roof', name: 'Nakładka styku krokwi', note: 'po obu stronach styku, 6 gwoździ na stronę', shape: { plane: 'yz', poly: rafterPoly(c - LAP / 2, c + LAP / 2), d: [d0, d0 + T] } });
   }
   if (tooLong) out.warnings.push(`Krokiew ${R(tooLong)} mm jest dłuższa niż kantówka ${stock} mm – dodaj ścianę nośną, na której da się ją połączyć, albo kup dłuższy materiał.`);
   else if (splices.rafters) out.warnings.push(`Krokwie łączone (${splices.rafters} styków): ${SPLICE_NOTE[rc.m]}.`);
@@ -710,17 +745,17 @@ function buildRoof(s, out, g) {
       const [[, , tcut]] = tc.spans.length && tc.spans[0].length === 3 ? [tc.spans[0]] : [[0, W, undefined]];
       for (const x0 of tiesX) {
         const d = [x0 + T, x0 + 2 * T];
-        if (tcut === undefined) { out.members.push({ kind: 'tie', sec: 'f45', len: W, group: 'roof', name: 'Ściąg / legar poddasza', note: 'na oczepach, przykręcony do krokwi, końce ścięte po spadku', shape: { plane: 'yz', poly: tiePoly(0, W), d } }); continue; }
+        if (tcut === undefined) { out.members.push({ kind: 'tie', sec: RSEC, len: W, group: 'roof', name: 'Ściąg', note: 'na oczepach, przykręcony do krokwi, końce ścięte po spadku; nie do składowania', shape: { plane: 'yz', poly: tiePoly(0, W), d } }); continue; }
         splices.ties++;
         const where = bearing.some((p) => Math.abs(p.c - tcut) < 1) ? 'nad ścianą nośną' : 'w połowie rozpiętości';
         runsAt(0, W, tcut, tc.m).forEach(([p, q], k) => {
           const dx = tc.m === 'lap' && k === 1 ? T : 0;
-          out.members.push({ kind: 'tie', sec: 'f45', len: R(q - p), group: 'roof', name: 'Ściąg / legar poddasza (część)', note: `${SPLICE_NOTE[tc.m].replace('nad ścianą nośną', where)}`, shape: { plane: 'yz', poly: tiePoly(p, q), d: [d[0] + dx, d[1] + dx] } });
+          out.members.push({ kind: 'tie', sec: RSEC, len: R(q - p), group: 'roof', name: 'Ściąg (część)', note: `${SPLICE_NOTE[tc.m].replace('nad ścianą nośną', where)}`, shape: { plane: 'yz', poly: tiePoly(p, q), d: [d[0] + dx, d[1] + dx] } });
         });
         if (tc.m === 'scab') for (const d0 of [x0, x0 + 2 * T])
-          out.members.push({ kind: 'scab', sec: 'f45', len: LAP, group: 'roof', name: 'Nakładka styku ściągu', note: 'po obu stronach styku, 4 śruby M12 (rozciąganie)', shape: box('yz', tcut - LAP / 2, Tf, tcut + LAP / 2, Tf + D, d0, d0 + T) });
+          out.members.push({ kind: 'scab', sec: RSEC, len: LAP, group: 'roof', name: 'Nakładka styku ściągu', note: 'po obu stronach styku, 4 śruby M12 po każdej stronie styku (rozciąganie)', shape: box('yz', tcut - LAP / 2, Tf, tcut + LAP / 2, Tf + RD, d0, d0 + T) });
       }
-      if (splices.ties) out.warnings.push(`Ściągi / legary poddasza łączone (${splices.ties} styków): pracują na rozciąganie, połączenie skręcić, nie tylko przybić.`);
+      if (splices.ties) out.warnings.push(`Ściągi łączone (${splices.ties} styków): pracują na rozciąganie, połączenie skręcić, nie tylko przybić.`);
     }
     else out.warnings.push('Dach dwuspadowy bez ściągów rozpycha ściany podłużne – włącz ściągi.');
   }
@@ -763,7 +798,7 @@ function buildRoof(s, out, g) {
     for (const sv of rows) {
       const poly = [at(sl, sv), at(sl, sv + bw), at(sl, sv + bw, bh), at(sl, sv, bh)];
       // joints on a rafter, and never on the same rafter as in the row below
-      const runs = splitAtSupports(x0r, x1r, rafterCenters.filter((c) => !prevJoints.some((j) => Math.abs(c - j) < 1)), bStock);
+      const runs = splitAtSupports(x0r, x1r, rafterCenters.slice(2, -2).filter((c) => !prevJoints.some((j) => Math.abs(c - j) < 1)), bStock);
       prevJoints = runs.slice(1).map(([p]) => p);
       if (prevJoints.length) longBattens = true;
       for (const [p, q] of runs)
@@ -805,7 +840,7 @@ function checks(s, out, g) {
   const jSp = Math.max(...g.joistY.slice(1).map((y, i) => y - g.joistY[i]));
   const bSp = Math.max(...g.beamX.slice(1).map((x, i) => x - g.beamX[i]));
   add(`Legar podłogi 45×95, rozstaw ${R(jSp)}`, s.loads.floor * jSp / 1000, bSp, I(T, D), 'zmniejsz rozstaw belek poprzecznych');
-  add(`Belka poprzeczna 100×100${g.mid ? ' z kotwami pośrednimi' : ''}`, s.loads.floor * bSp / 1000, out.info.midSpan, I(BEAM, BEAM), 'zmniejsz rozstaw kotew (dojdzie linia kotew pod środkiem) albo rozstaw belek poprzecznych');
+  add(`Belka poprzeczna ${SECTIONS[s.base.beamSec || 'b100'].name.replace('Belka ', '')}${g.mid ? ' z kotwami pośrednimi' : ''}`, s.loads.floor * bSp / 1000, out.info.midSpan, I(BEAM, BEAM), 'zmniejsz rozstaw kotew (dojdzie linia kotew pod środkiem) albo rozstaw belek poprzecznych');
   const aSp = Math.max(...g.anchorX.slice(1).map((x, i) => x - g.anchorX[i]));
   // longitudinal beam: half the floor, the eaves wall and the roof from its side, between supports
   // floor strip carried by the longitudinal beam: half the gap to the next anchor line
@@ -813,7 +848,7 @@ function checks(s, out, g) {
   const edgeStrip = Math.max(yLines[1] - yLines[0], yLines[yLines.length - 1] - yLines[yLines.length - 2]) / 2;
   const qLong = (s.loads.floor * edgeStrip + s.loads.roof * out.info.eaveTrib) / 1000 + 0.5;
   const aOk = Math.floor(Math.cbrt((384 * E * I(BEAM, BEAM)) / (1500 * qLong)) / 50) * 50;
-  add(`Belka podłużna 100×100 pod ścianą, kotwy co ${R(aSp)}`, qLong, aSp, I(BEAM, BEAM), `zmniejsz rozstaw kotew do ok. ${aOk} mm`);
+  add(`Belka podłużna ${SECTIONS[s.base.beamSec || 'b100'].name.replace('Belka ', '')} pod ścianą, kotwy co ${R(aSp)}`, qLong, aSp, I(BEAM, BEAM), `zmniejsz rozstaw kotew do ok. ${aOk} mm`);
   // load on the most loaded anchor (characteristic): outer line q × anchor spacing, or an
   // intermediate line taking its floor strip (+ roof from a bearing wall) per transverse beam
   const ys = [BEAM / 2, ...out.info.midY, W - BEAM / 2];
@@ -831,15 +866,25 @@ function checks(s, out, g) {
     const tribW = out.walls[p.id]?.trib || 0;
     add(`Legar podwójny pod ścianą nośną (oś ${R(p.c)})`, (s.loads.roof * tribW + s.loads.floor * 0.2) / 1000 + 0.5, bSp, 2 * I(T, D), 'gęściej belki poprzeczne albo belka 100×100 pod ścianą');
   }
+  if (s.roof.type === 'gable' && s.roof.ties) {
+    // tie between its supports (wall plates and bearing walls), own weight + light ceiling 0.3 kN/m²
+    const ts = [D / 2, W - D / 2, ...g.bearing.map((p) => p.c)].sort((p, q) => p - q);
+    const tSpan = Math.max(...ts.slice(1).map((y, i) => y - ts[i]));
+    const rh = SECTIONS[s.roof.rafterSec || 'f45'].h;
+    const qCeil = (0.3 * out.info.rafterSpacing) / 1000 + 0.05, Itie = I(T, rh);
+    const ceilOk = (5 * qCeil * tSpan ** 4) / (384 * E * Itie) <= tSpan / 300;
+    if (ceilOk) add(`Ściąg 45×${rh} (ciężar własny + sufit 0,3 kN/m², bez składowania)`, qCeil, tSpan, Itie, 'ściąg wyższego przekroju albo ściana nośna pod ściągami');
+    else add(`Ściąg 45×${rh} (tylko ciężar własny – bez sufitu i składowania)`, 0.05, tSpan, Itie, 'ściąg wyższego przekroju albo ściana nośna pod ściągami');
+  }
   const rSp = out.info.rafterSpacing;
   // rafter spans between supports: outer plates, bearing walls and (gable) the ridge
   const sup = [D / 2, W - D / 2, ...g.bearing.map((p) => p.c), ...(g.mono ? [] : [W / 2])].sort((p, q) => p - q);
   const gaps = sup.slice(1).map((y, i) => [sup[i], y]);
   const spanH = Math.max(...gaps.map(([p, q]) => q - p));
   const qR = (s.loads.roof * rSp / 1000) * g.cs ** 2;
-  add(`Krokiew 45×95, rozstaw ${R(rSp)}${g.bearing.length ? ', ze ścianą nośną' : ''}`, qR, spanH / g.cs, I(T, D), 'dodaj ścianę nośną (propozycja na rzucie) albo więcej krokwi');
+  add(`Krokiew ${SECTIONS[s.roof.rafterSec || 'f45'].name.replace('Kantówka ', '')}, rozstaw ${R(rSp)}${g.bearing.length ? ', ze ścianą nośną' : ''}`, qR, spanH / g.cs, I(T, RD), 'dodaj ścianę nośną (propozycja na rzucie) albo więcej krokwi');
   // proposals: split every too-long span evenly so each part passes L/300
-  const lhMax = Math.cbrt((384 * E * I(T, D)) / (1500 * qR)) * g.cs;
+  const lhMax = Math.cbrt((384 * E * I(T, RD)) / (1500 * qR)) * g.cs;
   out.suggestions = [];
   for (const [p, q] of gaps) {
     if (q - p <= lhMax) continue;
