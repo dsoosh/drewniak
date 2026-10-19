@@ -1,0 +1,178 @@
+// Checks of the frame generator, report and cutting against the spec scenarios.
+// Run: node tests/build.test.js   (VERBOSE=1 prints the cut list)
+import assert from 'assert';
+import { defaultState, normalize, encodeState, decodeState } from '../szkielet/js/model.js';
+import { build } from '../szkielet/js/build.js';
+import { report } from '../szkielet/js/report.js';
+import { packBars, packSheets } from '../szkielet/js/cut.js';
+
+let failed = 0;
+const test = (name, fn) => { try { fn(); console.log('ok  ', name); } catch (e) { failed++; console.log('FAIL', name, '\n     ', e.message); } };
+const fresh = (fn) => { const s = normalize(defaultState()); if (fn) fn(s); return normalize(s); };
+const count = (r, kind) => r.members.filter((m) => m.kind === kind).length;
+const finite = (r) => r.members.every((m) => m.len > 0 && m.shape.poly.every(([u, v]) => Number.isFinite(u) && Number.isFinite(v)));
+
+test('default shed: frame, roof and battens as built', () => {
+  const r = build(fresh());
+  assert.equal(r.members.filter((m) => m.name.startsWith('Belka podłużna')).length, 2);
+  assert.equal(r.members.filter((m) => m.name === 'Belka poprzeczna').length, 4);
+  assert.equal(count(r, 'rafter'), 8);
+  assert.equal(r.roof.battenRows[0].length, 10);
+  assert.ok(r.members.filter((m) => m.kind === 'batten').every((m) => m.len === 3701 && m.sec === 'l50'));
+  assert.deepEqual(r.warnings, []);
+  assert.ok(r.checks.every((c) => c.ok), r.checks.filter((c) => !c.ok).map((c) => c.name).join());
+  assert.ok(finite(r));
+});
+
+test('joist joints lie over transverse beams', () => {
+  const s = fresh(), r = build(s);
+  const centers = r.info.beamX.map((x) => x + 50);
+  for (const m of r.members.filter((x) => x.kind === 'joist'))
+    for (const x of [m.shape.poly[0][0], m.shape.poly[1][0]]) if (x > 46 && x < s.dims.L - 46) assert.ok(centers.some((c) => Math.abs(c - x) < 1), `joint at ${x}`);
+});
+
+test('high wall has three nogging rows, one on the sheet seam', () => {
+  const rows = build(fresh()).walls.back.nogRows;
+  assert.equal(rows.length, 3);
+  assert.ok(rows.includes(50 + 2500));
+});
+
+test('wall sheathing skips strips under 60 mm and needs 11 sheets', () => {
+  const s = fresh(), r = build(s), rep = report(r, s);
+  assert.ok(r.wallSheets.every((p) => Math.min(p.w, p.h) >= 60));
+  assert.equal(r.walls.front.gap, 20);
+  assert.equal(rep.wall.count, 11);
+});
+
+test('openings: moving a window rebuilds framing, collisions warn', () => {
+  const kings = (r) => r.members.filter((m) => m.wall === 'front' && m.kind === 'king').map((m) => m.upoly[0][0]);
+  assert.notDeepEqual(kings(build(fresh())), kings(build(fresh((s) => { s.openings.front[0].U = 600; }))));
+  const c = build(fresh((s) => { s.openings.front.push({ id: 'x', type: 'window', U: 1900, w: 600, h: 600, sill: 900 }); }));
+  assert.ok(c.warnings.some((w) => /za blisko/.test(w)));
+  const d = build(fresh((s) => { s.openings.front[0].U = 20; }));
+  assert.ok(d.warnings.some((w) => /narożnik/.test(w)));
+  const e = build(fresh((s) => { s.openings.front[0].sill = 1700; }));
+  assert.ok(e.warnings.some((w) => /nadproże/.test(w)));
+});
+
+test('door interrupts the bottom plate', () => {
+  const r = build(fresh());
+  assert.equal(r.members.filter((m) => m.wall === 'right' && m.name === 'Podwalina ściany').length, 2);
+});
+
+test('gable roof with partition: ties, extra studs, no NaN', () => {
+  const s = fresh((st) => {
+    st.roof.type = 'gable';
+    st.partitions.push({ id: 'p1', orient: 'y', c: 900, a: 95, b: 2405, h: 2100, openings: [{ id: 'q', type: 'door', U: 700, w: 900, h: 1900, sill: 0 }] });
+  });
+  const r = build(s);
+  assert.equal(count(r, 'tie'), 6);
+  assert.equal(count(r, 'rafter'), 16);
+  assert.ok(r.members.some((m) => m.wall === 'front' && Math.abs(m.upoly[0][0] - (900 - 22.5)) < 1));
+  assert.ok(r.members.some((m) => m.wall === 'back' && Math.abs(m.upoly[0][0] - (s.dims.L - 900 - 22.5)) < 1));
+  assert.ok(r.walls.p1.nogRows.length >= 2);
+  assert.deepEqual(r.warnings, []);
+  assert.ok(finite(r));
+  const hit = build(fresh((st) => st.partitions.push({ id: 'p', orient: 'y', c: 1500, a: 95, b: 2405, h: 2000, openings: [] })));
+  assert.ok(hit.warnings.some((w) => /dochodzi do otworu/.test(w)));
+  const noTies = build(fresh((st) => { st.roof.type = 'gable'; st.roof.ties = false; }));
+  assert.ok(noTies.warnings.some((w) => /ściągów/.test(w)));
+});
+
+test('partition parallel to joists gets a joist under it', () => {
+  const r = build(fresh((s) => s.partitions.push({ id: 'p', orient: 'x', c: 1700, a: 95, b: 3006, h: 2000, openings: [] })));
+  assert.ok(r.info.joistY.some((y) => Math.abs(y + 22.5 - 1700) < 1));
+});
+
+test('mid support off makes the transverse beam check fail', () => {
+  const c = build(fresh((s) => { s.base.midSupport = 'no'; })).checks.find((x) => x.name.startsWith('Belka poprzeczna'));
+  assert.equal(c.ok, false);
+  assert.match(c.hint, /podporę/);
+});
+
+test('large and steep building stays consistent', () => {
+  const r = build(fresh((s) => { s.dims.L = 7200; s.dims.W = 4000; s.roof.pitch = 30; s.roof.type = 'gable'; }));
+  assert.ok(finite(r));
+  assert.ok(r.members.filter((m) => m.sec === 'f45').every((m) => m.len <= 6000 || m.kind === 'rafter'));
+});
+
+test('clear sheets are counted separately', () => {
+  const s = fresh((st) => { st.roof.clear = ['0:1:0', '0:1:1']; });
+  assert.equal(report(build(s), s).cover.find((c) => c.clear).cells, 2);
+});
+
+test('cutting is deterministic and respects stock', () => {
+  const pieces = [2810, 2810, 2215, 2215, 1110, 1110, 580, 580, 463, 463, 463].map((len) => ({ len }));
+  const a = packBars(pieces, 6000, 3), b = packBars(pieces, 6000, 3);
+  assert.deepEqual(a.bars.map((x) => x.used), b.bars.map((x) => x.used));
+  assert.ok(a.bars.every((x) => x.used <= 6000));
+  assert.equal(packSheets([{ w: 1236, h: 306 }, { w: 1236, h: 306 }, { w: 1250, h: 615 }], 1250, 2500).sheets.length, 1);
+});
+
+test('a batten sits under every end lap of the covering', () => {
+  for (const L of [3101, 7200]) {
+    const s = fresh((st) => { st.dims.L = L; st.dims.W = 3500; });
+    const r = build(s), cov = s.roof.cover;
+    r.roof.slopes.forEach((sl, i) => {
+      const rows = r.roof.battenRows[i];
+      for (let k = 1; k < r.roof.grid[i].nr; k++) {
+        const lap0 = k * (cov.len - cov.lapL), lap1 = lap0 + cov.lapL;
+        assert.ok(rows.some((b) => b >= lap0 - 1 && b + 50 <= lap1 + 1), `no batten under lap ${lap0}`);
+      }
+      assert.ok(rows.slice(1).every((b, j) => b - rows[j] <= s.roof.battenMax + 1));
+    });
+  }
+});
+
+test('wide door gets an edge header, small window a flat one', () => {
+  const r = build(fresh((s) => { s.dims.L = 4000; s.openings.front.push({ id: 'd', type: 'door', U: 230, w: 2000, h: 2000, sill: 0 }); s.openings.front[0].U = 2700; }));
+  const heads = r.members.filter((m) => m.wall === 'front' && m.kind === 'header');
+  assert.ok(heads.some((m) => m.note.startsWith('na sztorc') && m.len === 2090));
+  assert.ok(heads.some((m) => m.note === 'płasko' && m.len === 1110));
+  assert.ok(r.checks.filter((c) => c.name.startsWith('Nadproże')).every((c) => c.ok), r.checks.map((c) => `${c.name} ${c.d.toFixed(1)}/${c.lim.toFixed(1)}`).join('; '));
+});
+
+test('steep roof limits the birdsmouth to 1/3 and warns', () => {
+  const r = build(fresh((s) => { s.roof.pitch = 30; }));
+  assert.ok(r.info.notch <= 95 / 3 + 0.01);
+  const ok = build(fresh((s) => { s.roof.pitch = 35; }));
+  assert.ok(ok.warnings.some((w) => /siedzisko/.test(w)));
+});
+
+test('long building staggers plate and batten joints and warns', () => {
+  const r = build(fresh((s) => { s.dims.L = 7200; }));
+  const joints = (name) => r.members.filter((m) => m.wall === 'front' && m.name === name).map((m) => m.upoly[1][0]).filter((x) => x < 7199);
+  for (const j of joints('Oczep (górny)')) assert.ok(joints('Oczep (dolny)').every((k) => Math.abs(k - j) > 600));
+  assert.ok(r.warnings.some((w) => /oczepy i podwalina łączone/.test(w)));
+  const rows = {};
+  for (const m of r.members.filter((x) => x.kind === 'batten')) (rows[m.shape.poly[0].join()] ||= []).push(m.shape.d[1]);
+  const ends = Object.values(rows).map((e) => e.sort((a, b) => a - b)[0]);
+  for (let i = 1; i < ends.length; i++) assert.notEqual(Math.round(ends[i]), Math.round(ends[i - 1]));
+});
+
+test('wide gable roof: tie lapped and warned, more mid supports', () => {
+  const r = build(fresh((s) => { s.dims.L = 6000; s.dims.W = 6500; s.roof.type = 'gable'; }));
+  assert.ok(r.warnings.some((w) => /Ściąg ma 6500/.test(w)));
+  assert.ok(r.members.filter((m) => m.kind === 'tie').every((m) => m.len <= 6000));
+  assert.ok(r.info.midSpan <= 1500);
+});
+
+test('rim joists under gable walls and verge boards on the roof', () => {
+  const r = build(fresh());
+  assert.equal(r.members.filter((m) => m.name === 'Legar czołowy').length, 2);
+  assert.equal(r.members.filter((m) => m.kind === 'verge').length, 2);
+  assert.ok(r.members.filter((m) => m.name === 'Legar podłogi').every((m) => m.len === 3101 - 90));
+});
+
+test('state survives a share link', () => {
+  const s = fresh((st) => { st.dims.L = 4200; st.partitions.push({ id: 'p', orient: 'y', c: 2000, a: 95, b: 2405, h: 2000, openings: [] }); });
+  assert.deepEqual(decodeState(encodeState(s)), s);
+});
+
+if (process.env.VERBOSE) {
+  const s = fresh(), rep = report(build(s), s);
+  for (const g of rep.cuts) console.log(`${g.sec} ${g.count}× ${g.len} ${g.name} ${g.note}`);
+  for (const t of rep.timber) console.log(t.name, t.count, 'szt.');
+}
+if (failed) { console.log(`\n${failed} failed`); process.exit(1); }
+console.log('\nall passed');

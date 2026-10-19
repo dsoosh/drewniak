@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Drewniak</title>
+<meta name="description" content="Kalkulatory konstrukcji z drewna: model 3D, rzuty, lista cięć, rozkrój i PDF.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@600&display=swap">
+<style>
+/* Layout: one column of construction cards, each a drawing-sheet title block. */
+:root { --ground: #edf0ea; --panel: #fbfcf9; --ink: #1d2420; --muted: #5f6b64; --line: #cdd4cb; --accent: #2f6b4f;
+  --display: "Archivo", "Arial Narrow", sans-serif; --sans: "Source Sans 3", system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, monospace; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --ground: #141917; --panel: #1c2320; --ink: #e4eae4; --muted: #9aa69f; --line: #34403a; --accent: #6fbf93; color-scheme: dark; } }
+:root[data-theme="dark"] { --ground: #141917; --panel: #1c2320; --ink: #e4eae4; --muted: #9aa69f; --line: #34403a; --accent: #6fbf93; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 17px/1.55 var(--sans); padding-inline: 16px; padding-block: 48px 64px; }
+.wrap { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+.eyebrow { font: 600 13px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin: 0; }
+h1 { font: 800 clamp(48px, 9vw, 84px)/0.95 var(--display); font-stretch: 75%; margin: 6px 0 12px; }
+.lead { max-width: 60ch; margin: 0; color: var(--muted); }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+a.card { display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: inherit; background: var(--panel); border: 1px solid var(--line); border-left: 5px solid var(--accent); padding: 18px 20px; }
+a.card:hover, a.card:focus-visible { border-color: var(--ink); outline: none; }
+a.card h2 { font: 800 30px/1 var(--display); font-stretch: 80%; margin: 0; }
+a.card p { margin: 0; font-size: 15.5px; }
+.spec { font: 600 12.5px var(--mono); color: var(--muted); }
+footer { font-size: 14px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
+footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Kalkulatory konstrukcji z drewna</p>
+    <h1>Drewniak</h1>
+    <p class="lead">Podajesz wymiary i materiał, który da się kupić. Dostajesz model 3D, rzuty z wymiarami, listę cięć, rozkrój na sztuki handlowe i PDF do zabrania na budowę.</p>
+  </header>
+  <div class="cards">
+    <a class="card" href="szkielet/">
+      <span class="spec">45×95 · OSB 2500×1250 · rama 100×100</span>
+      <h2>Szkielet</h2>
+      <p>Wiata, szopa albo domek gospodarczy. Dach jedno- lub dwuspadowy, drzwi i okna wstawiane na widokach ścian, ścianki działowe rysowane na rzucie. Słupki, nadproża, rygle i płyty docinają się same.</p>
+    </a>
+    <a class="card" href="skrzynka/">
+      <span class="spec">jedna deska · narzędzia ręczne</span>
+      <h2>Skrzynka na narzędzia</h2>
+      <p>Z deski, którą masz, dobiera wymiary skrzynki, rozkrój z najmniejszą liczbą cięć wzdłuż, plan pracy bez prądu i poziom trudności.</p>
+    </a>
+  </div>
+  <footer>Wyniki to wstępny dobór konstrukcji, nie projekt budowlany. Kod: <a href="https://github.com/dsoosh/drewniak">github.com/dsoosh/drewniak</a></footer>
+</div>
+</body>
+</html>

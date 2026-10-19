@@ -1,0 +1,471 @@
+// Page controller: form, tabs, editing on drawings, results, saving and sharing.
+import { defaultState, normalize, encodeState, decodeState, WALL_IDS, WALL_NAMES, OPENING_NAMES, SECTIONS, uid } from './model.js';
+import { build } from './build.js';
+import { report, facts } from './report.js';
+import { elevationSVG, planSVG, roofSVG, palette } from './draw.js';
+
+const $ = (id) => document.getElementById(id);
+const STORE = 'drewniak.szkielet.v1';
+const R = Math.round;
+const fmt = (n) => R(n).toLocaleString('pl-PL').replace(/ /g, ' ');
+
+let state = loadInitial();
+let res = null, rep = null, view3d = null;
+const ui = { tab: '3d', wall: 'front', selOp: null, selPart: null, showSheets: true };
+
+// ---------- form ----------
+
+const FIELDS = [
+  ['Wymiary', [
+    ['dims.L', 'Długość (przód, tył)', 'num', { step: 1, min: 1000 }],
+    ['dims.W', 'Szerokość (boki)', 'num', { step: 1, min: 1000 }],
+    ['walls.h0', 'Wysokość ściany niższej', 'num', { step: 5, note: 'szkielet od podłogi do wierzchu oczepu' }],
+  ]],
+  ['Dach', [
+    ['roof.type', 'Rodzaj', 'sel', { options: [['mono', 'jednospadowy'], ['gable', 'dwuspadowy']] }],
+    ['roof.highSide', 'Wyżej jest', 'sel', { options: [['back', 'tył'], ['front', 'przód']], show: (s) => s.roof.type === 'mono' }],
+    ['roof.pitch', 'Spadek [°]', 'num', { step: 0.1 }],
+    ['roof.ovhEave', 'Okap od spadku', 'num', { step: 10 }],
+    ['roof.ovhGable', 'Okap od szczytu', 'num', { step: 10 }],
+    ['roof.rafterMax', 'Krokwie – maks. rozstaw', 'num', { step: 5 }],
+    ['roof.battenMax', 'Łaty – maks. rozstaw', 'num', { step: 5 }],
+    ['roof.ties', 'Ściągi krokwi na oczepach', 'chk', { show: (s) => s.roof.type === 'gable' }],
+  ]],
+  ['Ściany', [
+    ['walls.studMax', 'Rozstaw słupków', 'sel', { options: [[625, '625 (½ płyty)'], [416.6667, '417 (⅓ płyty)'], [312.5, '312,5 (¼ płyty)']], num: true }],
+    ['walls.nogStep', 'Rygle co', 'num', { step: 10 }],
+    ['walls.nogStagger', 'Rygle na mijankę', 'chk'],
+    ['walls.sheathe', 'Poszycie OSB z zewnątrz', 'chk'],
+    ['walls.sheathBelow', 'Płyta zachodzi na ramę', 'num', { step: 5, show: (s) => s.walls.sheathe }],
+  ]],
+  ['Rama i podłoga', [
+    ['base.maxSpan', 'Belki poprzeczne – maks. rozstaw', 'num', { step: 10 }],
+    ['base.midSupport', 'Podpora pod środkiem belek', 'sel', { options: [['auto', 'auto (W > 2 m)'], ['yes', 'tak'], ['no', 'nie']] }],
+    ['floor.joistMax', 'Legary – maks. rozstaw', 'num', { step: 10 }],
+    ['floor.sheetT', 'Płyta podłogi [mm]', 'sel', { options: [[18, '18'], [22, '22'], [25, '25']], num: true }],
+    ['floor.splitJoists', 'Łącz legary nad belką, gdy mniej odpadu', 'chk'],
+  ]],
+  ['Pokrycie', [
+    ['roof.cover.name', 'Nazwa', 'txt'],
+    ['roof.cover.len', 'Długość arkusza', 'num', { step: 1 }],
+    ['roof.cover.wid', 'Szerokość arkusza', 'num', { step: 1 }],
+    ['roof.cover.lapL', 'Zakład podłużny', 'num', { step: 5 }],
+    ['roof.cover.lapW', 'Zakład boczny', 'num', { step: 1 }],
+    ['roof.cover.nails', 'Gwoździe na arkusz', 'num', { step: 1 }],
+  ]],
+  ['Materiał i ceny', [
+    ['stock.f45.len', 'Kantówka 45×95 – długość', 'num', { step: 100 }],
+    ['stock.l50.len', 'Łata 50×50 – długość', 'num', { step: 100 }],
+    ['stock.b100.len', 'Belka 100×100 – długość', 'num', { step: 100 }],
+    ['kerf', 'Rzaz piły', 'num', { step: 1 }],
+    ['stock.f45.price', 'Cena 45×95 [zł/szt.]', 'num', { step: 0.01, opt: true }],
+    ['stock.l50.price', 'Cena łaty [zł/szt.]', 'num', { step: 0.01, opt: true }],
+    ['stock.b100.price', 'Cena 100×100 [zł/szt.]', 'num', { step: 0.01, opt: true }],
+    ['stock.osbWall.price', 'Cena OSB 12 [zł/płyta]', 'num', { step: 0.01, opt: true }],
+    ['stock.osbFloor.price', 'Cena OSB podłogi [zł/płyta]', 'num', { step: 0.01, opt: true }],
+    ['stock.cover.price', 'Cena pokrycia [zł/arkusz]', 'num', { step: 0.01, opt: true }],
+  ]],
+  ['Obciążenia do kontroli ugięć', [
+    ['loads.floor', 'Podłoga [kN/m²]', 'num', { step: 0.1 }],
+    ['loads.roof', 'Dach: śnieg + ciężar [kN/m²]', 'num', { step: 0.1, note: 'strefa 2: śnieg 0,8 × 0,9 = 0,72 + pokrycie i drewno' }],
+  ]],
+];
+
+const get = (o, p) => p.split('.').reduce((a, k) => a?.[k], o);
+const set = (o, p, v) => { const ks = p.split('.'); const last = ks.pop(); ks.reduce((a, k) => a[k], o)[last] = v; };
+const fid = (p) => `f-${p.replace(/\./g, '-')}`;
+
+function renderForm() {
+  const host = $('form');
+  host.innerHTML = FIELDS.map(([legend, fields]) => `<fieldset><legend>${legend}</legend>${fields.map(([p, label, type, o = {}]) => {
+    const id = fid(p);
+    if (type === 'chk') return `<div class="chkrow" data-field="${p}"><input type="checkbox" id="${id}"><label for="${id}">${label}</label></div>`;
+    const input = type === 'sel' ? `<select id="${id}">${o.options.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select>`
+      : `<input id="${id}" type="${type === 'txt' ? 'text' : 'number'}" ${o.step ? `step="${o.step}"` : ''} ${o.min ? `min="${o.min}"` : ''} inputmode="decimal">`;
+    return `<label for="${id}" data-field="${p}" class="${type === 'txt' ? 'wide' : ''}">${label}</label><span data-field="${p}" class="${type === 'txt' ? 'wide' : ''}">${input}</span>${o.note ? `<p class="note" data-field="${p}">${o.note}</p>` : ''}`;
+  }).join('')}</fieldset>`).join('');
+  for (const [, fields] of FIELDS) for (const [p, , type, o = {}] of fields) {
+    const el = $(fid(p));
+    el.addEventListener(type === 'txt' || type === 'num' ? 'input' : 'change', () => {
+      let v = type === 'chk' ? el.checked : el.value;
+      if (type === 'num') { if (v === '' && o.opt) v = ''; else { v = Number(String(v).replace(',', '.')); if (!Number.isFinite(v)) return; } }
+      if (type === 'sel' && o.num) v = Number(v);
+      set(state, p, v);
+      state = normalize(state);
+      changed(false);
+    });
+  }
+  syncForm();
+}
+
+function syncForm() {
+  for (const [, fields] of FIELDS) for (const [p, , type, o = {}] of fields) {
+    const el = $(fid(p)), v = get(state, p);
+    if (document.activeElement !== el) {
+      if (type === 'chk') el.checked = !!v;
+      else if (type === 'sel') el.value = String(v);
+      else el.value = v ?? '';
+    }
+    const hide = o.show && !o.show(state);
+    document.querySelectorAll(`[data-field="${p}"]`).forEach((n) => (n.dataset.hidden = hide ? '1' : '0'));
+  }
+}
+
+// ---------- render ----------
+
+let pending = false;
+function changed(syncInputs = true) {
+  save();
+  if (syncInputs) syncForm(); else syncForm();
+  if (pending) return;
+  pending = true;
+  requestAnimationFrame(() => { pending = false; render(); });
+}
+
+function render() {
+  res = build(state);
+  rep = report(res, state);
+  const { L, W } = state.dims;
+  $('headline').textContent = `${fmt(L)} × ${fmt(W)} mm · dach ${state.roof.type === 'mono' ? 'jednospadowy' : 'dwuspadowy'} ${String(state.roof.pitch).replace('.', ',')}°`;
+  renderOrder();
+  $('facts').innerHTML = facts(res, state).map(([k, v]) => `<span>${k} <b>${v}</b></span>`).join('');
+  const gaps = Object.values(res.walls).filter((d) => d.gap > 0).map((d) => `${d.name}: pas ${d.gap} mm pod oczepem bez płyty (szczelina wentylacyjna pod okapem).`);
+  $('alerts').innerHTML = [...res.warnings.map((w) => `<div class="alert">${w}</div>`), ...res.checks.filter((c) => !c.ok).map((c) => `<div class="alert">${c.name}: ugięcie ${c.d.toFixed(1).replace('.', ',')} mm przy dopuszczalnych ${c.lim.toFixed(1).replace('.', ',')} – ${c.hint}.</div>`)].join('')
+    + (gaps.length ? `<p class="hint-inline">${gaps.join(' ')}</p>` : '');
+  renderTab();
+  renderChecks();
+  renderCutList();
+  renderBars();
+  renderSheets();
+}
+
+function renderOrder() {
+  const cards = [];
+  const col = { b100: 'var(--c-beam)', f45: 'var(--c-stud)', l50: 'var(--c-batten)' };
+  for (const t of rep.timber) cards.push(card(t.count, 'szt.', `${t.name} × ${fmt(t.stock)}`, `${t.pieces} elementów, odpad ${(t.waste / 1000).toFixed(1).replace('.', ',')} m`, col[t.sec]));
+  if (rep.wall) cards.push(card(rep.wall.count, 'płyt', `${rep.wall.name} na ściany`, `${rep.wall.area.toFixed(1).replace('.', ',')} m² po docięciu`, 'var(--c-sheet)'));
+  cards.push(card(rep.floor.count, 'płyt', rep.floor.name, `podłoga ${rep.floor.area.toFixed(1).replace('.', ',')} m²`, 'var(--c-floor)'));
+  for (const c of rep.cover) cards.push(card(c.count, 'arkuszy', c.name, `${state.roof.cover.len}×${state.roof.cover.wid}`, c.clear ? 'var(--c-clear)' : 'var(--c-cover)'));
+  for (const e of rep.extras) cards.push(card(e.qty, e.unit, e.name, '', 'var(--muted)'));
+  if (rep.priced) cards.push(card(fmt(rep.total), 'zł', 'Razem (pozycje z ceną)', 'bez łączników i impregnatu', 'var(--accent)'));
+  $('order').innerHTML = cards.join('');
+}
+const card = (q, unit, w, s, c) => `<div class="card" style="--c:${c}"><div class="q">${q}<small>${unit}</small></div><div class="w">${w}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
+
+function renderTab() {
+  document.querySelectorAll('.tabs [data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === ui.tab)));
+  document.querySelectorAll('[data-pane]').forEach((p) => (p.hidden = p.dataset.pane !== ui.tab));
+  const P = palette();
+  if (ui.tab === '3d') ensure3D().then((v) => { v.setBackground(P.bg); v.update(res, state); });
+  if (ui.tab === 'plan') { $('planView').innerHTML = planSVG(res, state, { pal: P, interactive: true, selected: ui.selPart, preview: drag?.preview }); renderPartPanel(); }
+  if (ui.tab === 'walls') {
+    if (!res.walls[ui.wall]) ui.wall = 'front';
+    $('wallChips').innerHTML = [...WALL_IDS.map((id) => [id, WALL_NAMES[id]]), ...state.partitions.map((p, i) => [p.id, `Ścianka ${i + 1}`])]
+      .map(([id, n]) => `<button data-wall="${id}" aria-pressed="${id === ui.wall}">${n}</button>`).join('');
+    $('wallView').innerHTML = elevationSVG(res, state, ui.wall, { pal: P, interactive: true, sheathing: ui.showSheets, selected: ui.selOp });
+    renderOpPanel();
+  }
+  if (ui.tab === 'roof') $('roofView').innerHTML = roofSVG(res, state, { pal: P, interactive: true });
+}
+
+let viewPromise = null;
+function ensure3D() {
+  if (!viewPromise) viewPromise = import('./view3d.js').then(({ View3D, LAYERS, PRESETS }) => {
+    view3d = new View3D($('viewer'));
+    $('layers').innerHTML = LAYERS.map(([k, n]) => `<label><input type="checkbox" data-layer="${k}" checked> ${n}</label>`).join('');
+    const apply = (vis) => { view3d.setVisible(vis); document.querySelectorAll('[data-layer]').forEach((c) => (c.checked = view3d.vis[c.dataset.layer] !== false)); };
+    $('layers').addEventListener('change', (e) => { const k = e.target.dataset.layer; if (k) { apply({ [k]: e.target.checked }); markPreset(null); } });
+    $('presets').addEventListener('click', (e) => { const p = e.target.dataset.preset; if (p) { apply(PRESETS[p]); markPreset(p); } });
+    const markPreset = (p) => document.querySelectorAll('[data-preset]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.preset === p)));
+    return view3d;
+  }).catch((err) => { $('viewer').innerHTML = `<p class="hint">Nie udało się uruchomić modelu 3D (${err.message}). Rysunki i zestawienia działają bez niego.</p>`; throw err; });
+  return viewPromise;
+}
+
+// ---------- panels ----------
+
+function wallOpenings(id) { return id in state.openings ? state.openings[id] : state.partitions.find((p) => p.id === id)?.openings; }
+
+function renderOpPanel() {
+  const list = wallOpenings(ui.wall) || [];
+  const o = list.find((x) => x.id === ui.selOp);
+  const panel = $('opPanel');
+  if (!o) { panel.hidden = false; panel.innerHTML = `<span class="hint-inline">${list.length ? 'Kliknij otwór, żeby go edytować. Przeciągaj go albo jego krawędzie.' : 'Ta ściana nie ma otworów. Dodaj drzwi, okno albo otwór przyciskiem wyżej.'}</span>`; return; }
+  panel.hidden = false;
+  panel.innerHTML = `<span class="title">${OPENING_NAMES[o.type]}</span>
+<label>Rodzaj<select id="op-type">${Object.entries(OPENING_NAMES).map(([k, n]) => `<option value="${k}" ${k === o.type ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+<label>Od lewego narożnika<input id="op-U" type="number" step="10" value="${o.U}"></label>
+<label>Szerokość otworu<input id="op-w" type="number" step="10" value="${o.w}"></label>
+<label>Wysokość otworu<input id="op-h" type="number" step="10" value="${o.h}"></label>
+${o.type === 'door' ? '' : `<label>Od podłogi<input id="op-sill" type="number" step="10" value="${o.sill}"></label>`}
+<button class="danger" id="op-del">Usuń</button>`;
+  const num = (id, k) => $(id)?.addEventListener('input', (e) => { const v = Number(e.target.value); if (Number.isFinite(v)) { o[k] = v; state = normalize(state); changed(); } });
+  num('op-U', 'U'); num('op-w', 'w'); num('op-h', 'h'); num('op-sill', 'sill');
+  $('op-type').addEventListener('change', (e) => { o.type = e.target.value; if (o.type === 'door') o.sill = 0; else if (o.type === 'window' && o.sill === 0) o.sill = 900; changed(); });
+  $('op-del').addEventListener('click', () => { list.splice(list.indexOf(o), 1); ui.selOp = null; changed(); });
+}
+
+function renderPartPanel() {
+  const p = state.partitions.find((x) => x.id === ui.selPart), panel = $('partPanel');
+  if (!p) { panel.hidden = true; return; }
+  const i = state.partitions.indexOf(p);
+  panel.hidden = false;
+  panel.innerHTML = `<span class="title">Ścianka ${i + 1} (${p.orient === 'x' ? 'wzdłuż długości' : 'w poprzek'})</span>
+<label>Oś ${p.orient === 'x' ? 'od przodu' : 'od lewej'}<input id="pp-c" type="number" step="5" value="${R(p.c)}"></label>
+<label>Od<input id="pp-a" type="number" step="5" value="${R(p.a)}"></label>
+<label>Do<input id="pp-b" type="number" step="5" value="${R(p.b)}"></label>
+<label>Wysokość<input id="pp-h" type="number" step="5" value="${p.h}"></label>
+<label class="chk" style="flex-direction:row"><input id="pp-sh" type="checkbox" ${p.sheathe ? 'checked' : ''}> OSB obustronnie</label>
+<button id="pp-ops">Otwory w ściance</button>
+<button class="danger" id="pp-del">Usuń</button>`;
+  for (const k of ['c', 'a', 'b', 'h']) $(`pp-${k}`).addEventListener('input', (e) => { const v = Number(e.target.value); if (Number.isFinite(v)) { p[k] = v; changed(); } });
+  $('pp-sh').addEventListener('change', (e) => { p.sheathe = e.target.checked; changed(); });
+  $('pp-ops').addEventListener('click', () => { ui.tab = 'walls'; ui.wall = p.id; ui.selOp = null; renderTab(); });
+  $('pp-del').addEventListener('click', () => { state.partitions.splice(i, 1); ui.selPart = null; changed(); });
+}
+
+// ---------- results ----------
+
+function renderChecks() {
+  $('checks').innerHTML = `<h2>Kontrola ugięć</h2><div class="tw"><table><thead><tr><th>Element</th><th class="n">Rozpiętość</th><th class="n">Ugięcie</th><th class="n">Dopuszczalne</th><th></th></tr></thead><tbody>${res.checks.map((c) => `<tr><td>${c.name}</td><td class="n">${fmt(c.span)}</td><td class="n">${c.d.toFixed(1).replace('.', ',')} mm</td><td class="n">${c.lim.toFixed(1).replace('.', ',')} mm</td><td class="${c.ok ? 'ok' : 'bad'}">${c.ok ? 'OK' : c.hint}</td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function renderCutList() {
+  let rows = '', last = '';
+  for (const g of rep.cuts) {
+    if (g.sec !== last) { rows += `<tr class="grp"><td colspan="4">${SECTIONS[g.sec].name}</td></tr>`; last = g.sec; }
+    rows += `<tr><td class="n">${g.count}×</td><td class="n">${fmt(g.len)}</td><td>${g.name}</td><td>${g.note}</td></tr>`;
+  }
+  $('cutlist').innerHTML = `<h2>Lista cięć</h2><div class="tw"><table><thead><tr><th class="n">Szt.</th><th class="n">Długość</th><th>Element</th><th>Uwagi</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+export function barSVG(bar, stock, P) {
+  const h = 26, k = 1000 / stock;
+  let s = `<svg viewBox="0 0 1000 ${h}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="1000" height="${h}" fill="${P.line}"/>`;
+  for (const p of bar.pieces) {
+    const w = p.len * k;
+    s += `<rect x="${(p.x * k).toFixed(1)}" y="1" width="${w.toFixed(1)}" height="${h - 2}" fill="${P.stud}" stroke="${P.ink}" stroke-width="0.6"/>`;
+    if (w > 34) s += `<text x="${((p.x + p.len / 2) * k).toFixed(1)}" y="${h / 2 + 4}" font-size="11" text-anchor="middle" fill="${P.ink}" font-family="${P.font}">${p.len}</text>`;
+  }
+  return s + '</svg>';
+}
+
+function renderBars() {
+  const P = palette();
+  $('bars').innerHTML = `<h2>Rozkrój drewna</h2>${rep.timber.map((t) => `<details ${t.sec === 'f45' ? '' : 'open'}><summary>${t.name}: ${t.count} szt. po ${fmt(t.stock)} mm</summary><div class="block">${t.bars.map((b, i) => `<div class="barrow"><b>${i + 1}</b>${barSVG(b, t.stock, P)}<span class="barcap">${b.pieces.map((p) => p.len).join(' + ')} · zostaje ${fmt(b.waste)}</span></div>`).join('')}${t.tooLong.length ? `<div class="alert">Dłuższe niż materiał: ${t.tooLong.map((p) => `${p.label} ${p.len}`).join(', ')}</div>` : ''}</div></details>`).join('')}`;
+}
+
+export function sheetSVG(sh, st, P) {
+  let s = `<svg viewBox="-10 -10 ${st.w + 20} ${st.h + 20}" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="${st.w}" height="${st.h}" fill="${P.line}" stroke="${P.ink}" stroke-width="4"/>`;
+  for (const it of sh.items) {
+    s += `<rect x="${it.x}" y="${it.y}" width="${it.w}" height="${it.h}" fill="${P.sheet}" stroke="${P.ink}" stroke-width="5"/>`;
+    const fs = Math.min(150, Math.max(60, Math.min(it.w, it.h) / 3));
+    if (Math.min(it.w, it.h) > 120) s += `<text x="${it.x + it.w / 2}" y="${it.y + it.h / 2 + fs / 3}" font-size="${fs}" text-anchor="middle" fill="${P.ink}" font-family="${P.fontLabel}" font-weight="700">${it.label}</text>`;
+  }
+  return s + '</svg>';
+}
+
+function renderSheets() {
+  const P = palette();
+  const part = (pk, st, title) => pk ? `<h3>${title}: ${pk.count} × ${pk.name}</h3><div class="sheetgrid">${pk.sheets.map((sh, i) => `<figure>${sheetSVG(sh, st, P)}<figcaption>${i + 1}. ${sh.items.map((it) => `${it.label} ${R(it.w)}×${R(it.h)}`).join(', ')}</figcaption></figure>`).join('')}</div>` : '';
+  $('sheets').innerHTML = `<h2>Rozkrój płyt</h2>${part(rep.wall, state.stock.osbWall, 'Ściany')}${part(rep.floor, state.stock.osbFloor, 'Podłoga')}`;
+}
+
+// ---------- editing on drawings ----------
+
+let drag = null;
+const svgPt = (svg, e) => { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; return p.matrixTransform(svg.getScreenCTM().inverse()); };
+const snap = (v, s = 10) => Math.round(v / s) * s;
+
+function bindEditing() {
+  document.querySelector('.tabs').addEventListener('click', (e) => { const t = e.target.dataset.tab; if (t) { ui.tab = t; renderTab(); } });
+  $('wallChips').addEventListener('click', (e) => { const w = e.target.dataset.wall; if (w) { ui.wall = w; ui.selOp = null; renderTab(); } });
+  $('showSheets').addEventListener('change', (e) => { ui.showSheets = e.target.checked; renderTab(); });
+  document.querySelectorAll('[data-add]').forEach((b) => b.addEventListener('click', () => addOpening(b.dataset.add)));
+
+  const wv = $('wallView');
+  wv.addEventListener('pointerdown', (e) => {
+    const t = e.target.closest('[data-op]');
+    const svg = wv.querySelector('svg');
+    if (!t || !svg) { if (e.target.closest('svg') && !t) { ui.selOp = null; renderTab(); } return; }
+    const o = (wallOpenings(ui.wall) || []).find((x) => x.id === t.dataset.op);
+    if (!o) return;
+    ui.selOp = o.id;
+    const p = svgPt(svg, e);
+    drag = { kind: 'op', mode: t.dataset.mode, o, x0: p.x, y0: p.y, orig: { ...o } };
+    wv.setPointerCapture(e.pointerId);
+    e.preventDefault();
+    renderTab();
+  });
+  wv.addEventListener('pointermove', (e) => {
+    if (drag?.kind !== 'op') return;
+    const svg = wv.querySelector('svg'), p = svgPt(svg, e);
+    const dx = snap(p.x - drag.x0), dz = snap(drag.y0 - p.y), o = drag.o, g = drag.orig;
+    const def = res.walls[ui.wall], minU = def.A + (def.long ? 90 : 45) + 90, maxU = (w) => def.B - (def.long ? 90 : 45) - 90 - w;
+    if (drag.mode === 'move') { o.U = Math.min(maxU(o.w), Math.max(minU, g.U + dx)); if (o.sill > 0) o.sill = Math.max(100, g.sill + dz); }
+    if (drag.mode === 'l') { const U = Math.min(g.U + g.w - 300, Math.max(minU, g.U + dx)); o.w = g.w + g.U - U; o.U = U; }
+    if (drag.mode === 'r') o.w = Math.max(300, Math.min(maxU(0) - g.U, g.w + dx));
+    if (drag.mode === 't') o.h = Math.max(300, g.h + dz);
+    if (drag.mode === 'b') { const sill = Math.min(g.sill + g.h - 300, Math.max(100, g.sill + dz)); o.h = g.h + g.sill - sill; o.sill = sill; }
+    changed();
+  });
+  const end = () => { drag = null; };
+  wv.addEventListener('pointerup', end); wv.addEventListener('pointercancel', end);
+
+  const pv = $('planView');
+  pv.addEventListener('pointerdown', (e) => {
+    const svg = pv.querySelector('svg');
+    if (!svg) return;
+    const p = svgPt(svg, e), x = p.x, y = -p.y;
+    const t = e.target.closest('[data-part]');
+    if (t) {
+      const part = state.partitions.find((q) => q.id === t.dataset.part);
+      ui.selPart = part.id;
+      drag = { kind: 'part', part, x0: x, y0: y, orig: { ...part } };
+    } else {
+      ui.selPart = null;
+      drag = { kind: 'draw', x0: x, y0: y, preview: null };
+    }
+    pv.setPointerCapture(e.pointerId);
+    e.preventDefault();
+    renderTab();
+  });
+  pv.addEventListener('pointermove', (e) => {
+    if (!drag || (drag.kind !== 'part' && drag.kind !== 'draw')) return;
+    const svg = pv.querySelector('svg'), p = svgPt(svg, e), x = p.x, y = -p.y;
+    const { L, W } = state.dims;
+    if (drag.kind === 'part') {
+      const q = drag.part, d = q.orient === 'x' ? y - drag.y0 : x - drag.x0;
+      const lim = q.orient === 'x' ? W : L;
+      q.c = Math.min(lim - 95 - 47.5, Math.max(95 + 47.5, snap(drag.orig.c + d, 5)));
+      changed();
+    } else {
+      drag.preview = partitionFrom(drag.x0, drag.y0, x, y);
+      renderTab();
+    }
+  });
+  pv.addEventListener('pointerup', () => {
+    if (drag?.kind === 'draw' && drag.preview && drag.preview.b - drag.preview.a >= 400) {
+      const p = { ...drag.preview, id: uid('p'), h: state.walls.h0, sheathe: false, openings: [] };
+      state.partitions.push(p);
+      ui.selPart = p.id;
+      drag = null;
+      changed();
+      return;
+    }
+    drag = null;
+    renderTab();
+  });
+
+  $('roofView').addEventListener('click', (e) => {
+    const c = e.target.closest('[data-cell]');
+    if (!c) return;
+    const k = c.dataset.cell, list = state.roof.clear, i = list.indexOf(k);
+    if (i >= 0) list.splice(i, 1); else list.push(k);
+    changed();
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Delete' || /input|select|textarea/i.test(document.activeElement?.tagName)) return;
+    if (ui.tab === 'walls' && ui.selOp) { const l = wallOpenings(ui.wall); l.splice(l.findIndex((o) => o.id === ui.selOp), 1); ui.selOp = null; changed(); }
+    if (ui.tab === 'plan' && ui.selPart) { state.partitions = state.partitions.filter((p) => p.id !== ui.selPart); ui.selPart = null; changed(); }
+  });
+}
+
+// Axis-aligned partition from a drag, snapped to inner wall faces and to other partitions.
+function partitionFrom(x0, y0, x1, y1) {
+  const { L, W } = state.dims;
+  const orient = Math.abs(x1 - x0) >= Math.abs(y1 - y0) ? 'x' : 'y';
+  const lim = orient === 'x' ? L : W, plim = orient === 'x' ? W : L;
+  let c = snap(orient === 'x' ? y0 : x0, 5);
+  c = Math.min(plim - 95 - 47.5, Math.max(95 + 47.5, c));
+  let a = Math.min(orient === 'x' ? x0 : y0, orient === 'x' ? x1 : y1), b = Math.max(orient === 'x' ? x0 : y0, orient === 'x' ? x1 : y1);
+  const stops = [95, lim - 95];
+  for (const q of state.partitions) if (q.orient !== orient && c > q.a && c < q.b) stops.push(q.c - 47.5, q.c + 47.5);
+  const near = (v) => { const s = stops.reduce((best, t) => (Math.abs(t - v) < Math.abs(best - v) ? t : best), stops[0]); return Math.abs(s - v) < 150 ? s : snap(v); };
+  a = Math.max(95, near(a)); b = Math.min(lim - 95, near(b));
+  return { orient, c, a, b };
+}
+
+function addOpening(type) {
+  const list = wallOpenings(ui.wall);
+  if (!list) return;
+  const def = res.walls[ui.wall];
+  const size = { door: [1020, 2090, 0], window: [1020, 620, 1000], opening: [900, 2090, 0] }[type];
+  const corner = (def.long ? 90 : 45) + 90;
+  const busy = list.map((o) => [o.U - 90, o.U + o.w + 90]);
+  let U = null;
+  for (let u = def.A + corner; u + size[0] <= def.B - corner; u += 10)
+    if (!busy.some(([p, q]) => u - 90 < q && u + size[0] + 90 > p)) { U = u; break; }
+  if (U === null) { toast('Na tej ścianie nie ma miejsca na taki otwór.'); return; }
+  const o = { id: uid('o'), type, U, w: size[0], h: size[1], sill: size[2] };
+  list.push(o);
+  ui.selOp = o.id;
+  changed();
+}
+
+// ---------- storage and sharing ----------
+
+function loadInitial() {
+  const h = location.hash;
+  if (h.startsWith('#s=')) { try { return decodeState(h.slice(3)); } catch (_) { /* fall through */ } }
+  try { const raw = localStorage.getItem(STORE); if (raw) return normalize(JSON.parse(raw)); } catch (_) { /* ignore */ }
+  return normalize(defaultState());
+}
+function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (_) { /* ignore */ } }
+
+function toast(t) { const el = $('toast'); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (el.hidden = true), 2600); }
+
+function bindActions() {
+  $('btnLink').addEventListener('click', async () => {
+    const url = `${location.origin}${location.pathname}#s=${encodeState(state)}`;
+    history.replaceState(null, '', url);
+    try { await navigator.clipboard.writeText(url); toast('Link skopiowany. Otwiera dokładnie tę konfigurację.'); } catch (_) { toast('Link jest w pasku adresu – skopiuj go stamtąd.'); }
+  });
+  $('btnExport').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(state, null, 1)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = `szkielet-${state.dims.L}x${state.dims.W}.json`; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+  $('fileImport').addEventListener('change', async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    try { state = normalize(JSON.parse(await f.text())); ui.selOp = ui.selPart = null; changed(); toast('Wczytano konfigurację.'); } catch (_) { toast('To nie jest plik konfiguracji szkieletu.'); }
+    e.target.value = '';
+  });
+  $('btnReset').addEventListener('click', () => {
+    const b = $('btnReset');
+    if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Na pewno? Kliknij jeszcze raz'; setTimeout(() => { b.dataset.armed = '0'; b.textContent = 'Od nowa'; }, 3000); return; }
+    b.dataset.armed = '0'; b.textContent = 'Od nowa';
+    state = normalize(defaultState()); ui.selOp = ui.selPart = null; history.replaceState(null, '', location.pathname); changed(); toast('Przywrócono wiatę 3101 × 2500.');
+  });
+  $('btnPdf').addEventListener('click', async () => {
+    const b = $('btnPdf'); b.disabled = true; b.textContent = 'Składam PDF…';
+    try {
+      const { makePdf } = await import('./pdf.js');
+      const img = await ensure3D().then((v) => { v.update(res, state); return v.snapshot(); }).catch(() => null);
+      await makePdf(res, rep, state, img);
+    } catch (err) {
+      console.error(err);
+      toast('Nie udało się złożyć PDF – otwieram wydruk przeglądarki.');
+      printFallback();
+    } finally { b.disabled = false; b.textContent = 'Pobierz PDF'; }
+  });
+  window.addEventListener('beforeprint', fillPrintViews);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => render());
+}
+
+function fillPrintViews() {
+  const P = palette();
+  const ids = [...WALL_IDS, ...state.partitions.map((p) => p.id)];
+  $('printViews').innerHTML = `<section><h2>Rzut podłogi</h2>${planSVG(res, state, { pal: P })}</section><section><h2>Dach</h2>${roofSVG(res, state, { pal: P })}</section>`
+    + ids.map((id) => `<section><h2>${res.walls[id].name}</h2>${elevationSVG(res, state, id, { pal: P, sheathing: true })}</section>`).join('');
+}
+function printFallback() { fillPrintViews(); setTimeout(() => window.print(), 50); }
+
+// ---------- boot ----------
+
+renderForm();
+bindEditing();
+bindActions();
+render();

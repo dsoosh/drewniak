@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Szkielet — konfigurator budynku szkieletowego</title>
+<meta name="description" content="Wyklikaj wiatę, szopę albo domek gospodarczy w konstrukcji szkieletowej: dach, drzwi, okna, ścianki działowe. Lista cięć, rozkrój i PDF liczą się na żywo.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="app.css">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="../">drewniak</a>
+  <h1>Szkielet</h1>
+  <p class="sub" id="headline">Budynek szkieletowy na ramie 100×100</p>
+  <div class="actions">
+    <button id="btnPdf" class="primary">Pobierz PDF</button>
+    <button id="btnLink">Kopiuj link</button>
+    <button id="btnExport">Zapisz plik</button>
+    <label class="filebtn">Wczytaj plik<input id="fileImport" type="file" accept=".json,application/json" hidden></label>
+    <button id="btnReset">Od nowa</button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="side" id="form" aria-label="Parametry"></aside>
+
+  <main class="main">
+    <section class="order" id="order" aria-label="Do zamówienia"></section>
+    <section class="facts" id="facts"></section>
+    <section class="alerts" id="alerts"></section>
+
+    <section class="work">
+      <div class="tabs" role="tablist">
+        <button role="tab" data-tab="3d" aria-selected="true">Model 3D</button>
+        <button role="tab" data-tab="plan">Rzut podłogi</button>
+        <button role="tab" data-tab="walls">Ściany</button>
+        <button role="tab" data-tab="roof">Dach</button>
+      </div>
+
+      <div class="pane" data-pane="3d">
+        <div class="bar">
+          <div class="seg" id="presets">
+            <button data-preset="frame">Szkielet</button>
+            <button data-preset="all" aria-pressed="true">Całość</button>
+          </div>
+          <div class="layers" id="layers"></div>
+        </div>
+        <div class="viewer" id="viewer"><p class="hint">przeciągnij – obrót · prawy przycisk – przesuw · kółko – zoom</p></div>
+      </div>
+
+      <div class="pane" data-pane="plan" hidden>
+        <div class="bar"><p class="hint-inline">Przeciągnij po rzucie, żeby narysować ściankę działową. Kliknij ściankę, żeby ją przesunąć albo zmienić.</p></div>
+        <div class="drawing" id="planView"></div>
+        <div class="panel" id="partPanel" hidden></div>
+      </div>
+
+      <div class="pane" data-pane="walls" hidden>
+        <div class="bar">
+          <div class="seg" id="wallChips"></div>
+          <div class="seg">
+            <button data-add="door">+ Drzwi</button>
+            <button data-add="window">+ Okno</button>
+            <button data-add="opening">+ Otwór</button>
+          </div>
+          <label class="chk"><input type="checkbox" id="showSheets" checked> Poszycie</label>
+        </div>
+        <div class="drawing" id="wallView"></div>
+        <div class="panel" id="opPanel" hidden></div>
+      </div>
+
+      <div class="pane" data-pane="roof" hidden>
+        <div class="bar"><p class="hint-inline">Kliknij arkusz, żeby zamienić go na przezroczysty (świetlik) i z powrotem.</p></div>
+        <div class="drawing" id="roofView"></div>
+      </div>
+    </section>
+
+    <section class="block" id="checks"></section>
+    <section class="block" id="cutlist"></section>
+    <section class="block" id="bars"></section>
+    <section class="block" id="sheets"></section>
+    <p class="disclaimer">Wstępny dobór konstrukcji: ugięcia liczone jak dla belek swobodnie podpartych (C24, L/300). To nie jest projekt budowlany. Sprawdź lokalne obciążenie śniegiem, wiatr i wymagania zgłoszenia.</p>
+  </main>
+</div>
+
+<div id="printViews" class="print-only"></div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
