@@ -7,7 +7,7 @@ Interfejs konfiguratora szkieletu: parametry, edycja otworów i ścianek na rzut
 The page SHALL offer inputs for dimensions, base frame (transverse beam spacing and maximum
 ground anchor spacing), floor (sheet thickness from a list), walls (including sheathing
 thickness from a list, interior sheathing and the opening width from which openings get double
-studs), roof, covering sheet, stock lengths and prices (empty OSB price = price from the
+studs), roof (including the splice method for rafters and loft joists), covering sheet, stock lengths and prices (empty OSB price = price from the
 thickness table, anchor price), and loads, and SHALL rebuild the model, drawings, cut list and
 materials without a submit button. Number inputs SHALL carry the model limits as min and max,
 and a value outside them SHALL be clamped with a short message naming the limit. The saw kerf

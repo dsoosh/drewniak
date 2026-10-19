@@ -50,7 +50,7 @@ export function defaultState() {
     walls: { h0: 2350, studMax: 625, nogStep: 800, nogStagger: true, doubleFrom: 1200, sheatheIn: false, sheathT: 12, sheathBelow: 50, sheathe: true },
     roof: {
       type: 'mono', pitch: 13.9, highSide: 'back', ovhEave: 300, ovhGable: 300,
-      rafterMax: 450, battenMax: 420, battenSec: 'l50', ties: true,
+      rafterMax: 450, battenMax: 420, battenSec: 'l50', ties: true, splice: 'scab',
       cover: { name: 'Płyta bitumiczna falista', len: 2000, wid: 950, lapL: 200, lapW: 95, nails: 20 },
       clear: [],
     },
@@ -62,7 +62,7 @@ export function defaultState() {
     },
     partitions: [],
     stock: {
-      b100: { len: 6500, price: 189 },   // sold as halves of 13 m beams
+      b100: { len: 13000, unit: 6500, price: 189 },   // 13 m beams cut to order, sold and priced in 6.5 m halves
       f45: { len: 6000, price: 69 },
       l50: { len: 5400, price: 22 },
       osbWall: { name: 'OSB/3 12 mm', w: 1250, h: 2500, price: '' },    // '' = price from OSB_PRICES
@@ -102,8 +102,11 @@ export function normalize(s) {
   }).map(({ p, a, b, c }) => ({ id: p.id || uid('p'), orient: p.orient === 'y' ? 'y' : 'x', c, a, b, h: clampN(p.h, 500, 3500, o.walls.h0), sheathe: p.sheathe === true ? 'both' : ['a', 'b', 'both'].includes(p.sheathe) ? p.sheathe : 'none', bearing: !!p.bearing && p.orient !== 'y', openings: (p.openings || []).map(fixOpening) }));
   if (!Array.isArray(o.roof.clear)) o.roof.clear = [];
   o.roof.clear = o.roof.clear.slice(0, 500);
+  if (!['none', 'scab', 'lap', 'plate'].includes(o.roof.splice)) o.roof.splice = 'scab';
   const studs = [625, 416.6667, 312.5];
   o.walls.studMax = studs.reduce((best, v) => (Math.abs(v - o.walls.studMax) < Math.abs(best - o.walls.studMax) ? v : best), 625);
+  // older saves counted 100×100 as separate 6.5 m pieces
+  if (!o.stock.b100.unit || o.stock.b100.unit === 6500 && o.stock.b100.len === 6500) { o.stock.b100.len = 13000; o.stock.b100.unit = 6500; }
   // older saves had empty prices: fall back to the price list
   for (const k of ['b100', 'f45', 'l50', 'cover', 'anchor']) if (o.stock[k].price === '' || o.stock[k].price === null) o.stock[k].price = PRICE_DEFAULTS[k];
   if (!OSB_PRICES[o.walls.sheathT]) o.walls.sheathT = 12;

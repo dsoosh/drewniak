@@ -1,6 +1,7 @@
 // Page controller: form, tabs, editing on drawings, results, saving and sharing.
 import { defaultState, normalize, encodeState, decodeState, WALL_IDS, WALL_NAMES, OPENING_NAMES, SECTIONS, uid, osbPrice, ANCHOR_RANGE, LIMITS } from './model.js';
 import { EXAMPLES } from './examples.js';
+const halves = (n) => (n === 1 ? 'połówkę' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'połówki' : 'połówek');
 import { build } from './build.js';
 import { report, facts } from './report.js';
 import { elevationSVG, planSVG, roofSVG, palette } from './draw.js';
@@ -32,6 +33,7 @@ const FIELDS = [
     ['roof.rafterMax', 'Krokwie – maks. rozstaw', 'num', { step: 5 }],
     ['roof.battenMax', 'Łaty – maks. rozstaw', 'num', { step: 5 }],
     ['roof.ties', 'Ściągi krokwi na oczepach', 'chk', { show: (s) => s.roof.type === 'gable' }],
+    ['roof.splice', 'Łączenie krokwi i legarów poddasza', 'sel', { options: [['scab', 'nakładki z kantówki'], ['lap', 'na zakład (ściągi; krokwie nakładkami)'], ['plate', 'płytki kolczaste'], ['none', 'bez łączenia']], note: 'nad ścianą nośną (ściąg bez niej – w połowie), gdy zmniejsza to odpad albo element jest za długi' }],
   ]],
   ['Ściany', [
     ['walls.studMax', 'Rozstaw słupków', 'sel', { options: [[625, '625 (½ płyty)'], [416.6667, '417 (⅓ płyty)'], [312.5, '312,5 (¼ płyty)']], num: true }],
@@ -179,7 +181,7 @@ function render() {
 function renderOrder() {
   const cards = [];
   const col = { b100: 'var(--c-beam)', f45: 'var(--c-stud)', l50: 'var(--c-batten)' };
-  for (const t of rep.timber) cards.push(card(t.count, 'szt.', `${t.name} × ${fmt(t.stock)}`, `${t.pieces} elementów, odpad ${(t.waste / 1000).toFixed(1).replace('.', ',')} m`, col[t.sec]));
+  for (const t of rep.timber) cards.push(card(t.count, 'szt.', `${t.name} × ${fmt(t.buyLen)}`, `${t.pieces} elementów, odpad ${(t.waste / 1000).toFixed(1).replace('.', ',')} m`, col[t.sec]));
   if (rep.wall) cards.push(card(rep.wall.count, 'płyt', `${rep.wall.name} na ściany`, `${rep.wall.area.toFixed(1).replace('.', ',')} m² po docięciu`, 'var(--c-sheet)'));
   if (rep.wallIn) cards.push(card(rep.wallIn.count, 'płyt', `${rep.wallIn.name} od środka i ścianki`, `${rep.wallIn.area.toFixed(1).replace('.', ',')} m² po docięciu`, 'var(--c-sheet)'));
   cards.push(card(rep.floor.count, 'płyt', rep.floor.name, `podłoga ${rep.floor.area.toFixed(1).replace('.', ',')} m²`, 'var(--c-floor)'));
@@ -303,7 +305,7 @@ export function barSVG(bar, stock, P) {
 
 function renderBars() {
   const P = palette();
-  $('bars').innerHTML = `<h2>Rozkrój drewna</h2>${rep.timber.map((t) => `<details ${t.sec === 'f45' ? '' : 'open'}><summary>${t.name}: ${t.count} szt. po ${fmt(t.stock)} mm</summary><div class="block">${t.bars.map((b, i) => `<div class="barrow"><b>${i + 1}</b>${barSVG(b, t.stock, P)}<span class="barcap">${b.pieces.map((p) => p.len).join(' + ')} · zostaje ${fmt(b.waste)}</span></div>`).join('')}${t.tooLong.length ? `<div class="alert">Dłuższe niż materiał: ${t.tooLong.map((p) => `${p.label} ${p.len}`).join(', ')}</div>` : ''}</div></details>`).join('')}`;
+  $('bars').innerHTML = `<h2>Rozkrój drewna</h2>${rep.timber.map((t) => `<details ${t.sec === 'f45' ? '' : 'open'}><summary>${t.unit ? `${SECTIONS[t.sec].name}: ${t.beams} ${t.beams === 1 ? 'belka' : 'belki'} 13 m, kupujesz ${t.count} ${halves(t.count)} po ${fmt(t.unit)} mm` : `${t.name}: ${t.count} szt. po ${fmt(t.stock)} mm`}</summary><div class="block">${t.bars.map((b, i) => `<div class="barrow"><b>${i + 1}</b>${barSVG(b, t.stock, P)}<span class="barcap">${b.pieces.map((p) => p.len).join(' + ')} · zostaje ${fmt(b.waste)}${t.unit && b.units === 1 ? ' · z tej belki kupujesz połowę' : ''}</span></div>`).join('')}${t.tooLong.length ? `<div class="alert">Dłuższe niż materiał: ${t.tooLong.map((p) => `${p.label} ${p.len}`).join(', ')}</div>` : ''}</div></details>`).join('')}`;
 }
 
 export function sheetSVG(sh, st, P) {

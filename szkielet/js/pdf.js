@@ -1,5 +1,6 @@
 // PDF export: jsPDF + svg2pdf.js loaded on demand, DejaVu Sans for Polish characters.
 import { WALL_IDS, SECTIONS } from './model.js';
+const halves = (n) => (n === 1 ? 'połówkę' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'połówki' : 'połówek');
 import { elevationSVG, planSVG, roofSVG, PRINT_PALETTE } from './draw.js';
 import { facts } from './report.js';
 
@@ -96,7 +97,7 @@ export async function makePdf(res, rep, state, img3d) {
   // 1. summary
   header(title);
   const order = [];
-  for (const t of rep.timber) order.push([`${t.name} × ${fmt(t.stock)}`, `${t.count} szt.`, `${t.pieces} el., odpad ${(t.waste / 1000).toFixed(1).replace('.', ',')} m`]);
+  for (const t of rep.timber) order.push([`${t.name} × ${fmt(t.buyLen)}`, `${t.count} szt.`, `${t.pieces} el., odpad ${(t.waste / 1000).toFixed(1).replace('.', ',')} m`]);
   if (rep.wall) order.push([`${rep.wall.name} na ściany`, `${rep.wall.count} płyt`, `${rep.wall.area.toFixed(1).replace('.', ',')} m² po docięciu`]);
   order.push([rep.floor.name, `${rep.floor.count} płyt`, `${rep.floor.area.toFixed(1).replace('.', ',')} m²`]);
   for (const c of rep.cover) order.push([c.name, `${c.count} ark.`, `${state.roof.cover.len}×${state.roof.cover.wid}`]);
@@ -157,7 +158,7 @@ export async function makePdf(res, rep, state, img3d) {
   y = M + 12;
   for (const t of rep.timber) {
     if (y > PH - 30) { header('Rozkrój drewna, ciąg dalszy'); y = M + 12; }
-    doc.setFont('DejaVu', 'bold'); doc.setFontSize(9.5); doc.text(`${t.name}: ${t.count} szt. po ${fmt(t.stock)} mm`, M, y); y += 4;
+    doc.setFont('DejaVu', 'bold'); doc.setFontSize(9.5); doc.text(t.unit ? `${SECTIONS[t.sec].name}: ${t.beams} × belka 13 m, kupujesz ${t.count} ${halves(t.count)} po ${fmt(t.unit)} mm` : `${t.name}: ${t.count} szt. po ${fmt(t.stock)} mm`, M, y); y += 4;
     t.bars.forEach((b, i) => {
       if (y > PH - 18) { header('Rozkrój drewna, ciąg dalszy'); y = M + 12; }
       const k = (PW - 2 * M - 10) / t.stock;
@@ -169,7 +170,7 @@ export async function makePdf(res, rep, state, img3d) {
         doc.rect(M + 8 + p.x * k, y, p.len * k, 5, 'FD');
         if (p.len * k > 9) doc.text(String(p.len), M + 8 + (p.x + p.len / 2) * k, y + 3.5, { align: 'center' });
       }
-      doc.text(`zostaje ${fmt(b.waste)}`, M + 8 + t.stock * k, y + 7.8, { align: 'right' });
+      doc.text(`zostaje ${fmt(b.waste)}${t.unit && b.units === 1 ? ' (kupujesz połowę)' : ''}`, M + 8 + t.stock * k, y + 7.8, { align: 'right' });
       y += 9.5;
     });
     y += 3;

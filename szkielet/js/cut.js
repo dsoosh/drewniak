@@ -2,7 +2,8 @@
 
 // Packs pieces [{len,label}] into bars of length `stock`. Tries first-fit decreasing and a few
 // hundred randomised best-fit runs; keeps the fewest bars, then the most concentrated offcut.
-export function packBars(pieces, stock, kerf = 3, tries = 300) {
+// With `unit` (e.g. 6500 for 13 m beams sold in halves) the packing that needs the fewest units wins.
+export function packBars(pieces, stock, kerf = 3, tries = 300, unit = null) {
   const tooLong = pieces.filter((p) => p.len > stock);
   const list = pieces.filter((p) => p.len <= stock);
   const run = (order, best) => {
@@ -20,7 +21,8 @@ export function packBars(pieces, stock, kerf = 3, tries = 300) {
     }
     return bars;
   };
-  const score = (bars) => bars.length * 1e12 - bars.reduce((t, b) => t + (stock - b.used) ** 2, 0);
+  const units = (bars) => (unit ? bars.reduce((t, b) => t + Math.ceil((b.used - 0.5) / unit), 0) : bars.length);
+  const score = (bars) => units(bars) * 1e12 - bars.reduce((t, b) => t + (stock - b.used) ** 2, 0);
   const sorted = [...list].sort((a, b) => b.len - a.len);
   let best = run(sorted, false), bestS = score(best);
   let seed = 12345;
@@ -35,11 +37,14 @@ export function packBars(pieces, stock, kerf = 3, tries = 300) {
     let x = 0;
     for (const p of b.pieces) { p.x = x; x += p.len + kerf; }
     // the offcut is separated by one more saw cut
-    const rem = stock - b.used;
+    // with units the bought length is what counts: a half-used 13 m beam is bought as a half
+    b.bought = unit ? Math.ceil((b.used - 0.5) / unit) * unit : stock;
+    b.units = unit ? b.bought / unit : 1;
+    const rem = b.bought - b.used;
     b.waste = rem > kerf ? rem - kerf : 0;
   }
   best.sort((a, b) => a.waste - b.waste);
-  return { bars: best, tooLong };
+  return { bars: best, tooLong, units: units(best) };
 }
 
 // MaxRects packing (best short side fit, rotation allowed) of pieces [{w,h,label}] into sheets W×H.

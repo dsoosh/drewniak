@@ -167,7 +167,7 @@ test('long building staggers plate and batten joints and warns', () => {
 
 test('wide gable roof: tie lapped and warned, more mid supports', () => {
   const r = build(fresh((s) => { s.dims.L = 6000; s.dims.W = 6500; s.roof.type = 'gable'; }));
-  assert.ok(r.warnings.some((w) => /Ściąg ma 6500/.test(w)));
+  assert.ok(r.warnings.some((w) => w.includes('legary poddasza łączone')));
   assert.ok(r.members.filter((m) => m.kind === 'tie').every((m) => m.len <= 6000));
   assert.ok(r.info.midSpan <= 2500);
 });
@@ -179,17 +179,23 @@ test('rim joists under gable walls and verge boards on the roof', () => {
   assert.ok(r.members.filter((m) => m.name === 'Legar podłogi').every((m) => m.len === 3101 - 90));
 });
 
-test('100×100 bought in 6.5 m pieces, long beams joined over a beam', () => {
+test('100×100 cut from 13 m beams, ordered in 6.5 m halves', () => {
   const s = fresh(), rep = report(build(s), s);
   const b = rep.timber.find((t) => t.sec === 'b100');
-  assert.equal(b.stock, 6500);
+  assert.equal(b.stock, 13000);
   assert.equal(b.count, 3);
-  const r = build(fresh((st) => { st.dims.L = 9000; }));
-  const centers = r.info.beamX.map((x) => x + 50);
+  const w = EXAMPLES.find((e) => e.id === 'warsztat').make();
+  const bw = report(build(w), w).timber.find((t) => t.sec === 'b100');
+  assert.equal(bw.count, 4);
+  assert.equal(bw.beams, 2);
+  const r = build(fresh((st) => { st.dims.L = 10000; }));
   const front = r.members.filter((m) => m.name === 'Belka podłużna (przód)');
-  assert.equal(front.length, 2);
-  assert.ok(centers.some((c) => Math.abs(c - front[0].shape.poly[1][0]) < 1));
-  assert.ok(front.every((m) => m.len <= 6500));
+  assert.equal(front.length, 1);
+  assert.equal(front[0].len, 10000);
+  const r2 = build(fresh((st) => { st.dims.L = 15000; }));
+  const f2 = r2.members.filter((m) => m.name === 'Belka podłużna (przód)');
+  const ax = r2.info.anchorX.map((x) => x + 50);
+  assert.ok(f2.length === 2 && ax.some((c) => Math.abs(c - f2[0].shape.poly[1][0]) < 1));
 });
 
 test('wide mono roof proposes bearing walls that make rafters pass', () => {
@@ -388,6 +394,47 @@ test('review 5: no member longer than its stock in the examples, studs under par
   const r = build(s);
   const studs = r.members.filter((m) => m.wall === 'front' && m.kind === 'stud').map((m) => [m.upoly[0][0], m.upoly[1][0]]);
   for (const edge of [1500 - 47.5 - 12, 1500 + 47.5 + 12]) assert.ok(studs.some(([a, b]) => edge >= a && edge <= b), `no stud under edge ${edge}`);
+});
+
+test('splices: rafters only over a bearing wall, ties over a bearing wall or at mid-span', () => {
+  const bw = (st, c) => st.partitions.push({ id: 'b' + c, orient: 'x', c, a: 95, b: st.dims.L - 95, h: 2000, bearing: true, openings: [] });
+  const r = build(fresh((st) => { st.dims.W = 6000; bw(st, 3000); }));
+  const parts = r.members.filter((m) => m.kind === 'rafter');
+  assert.equal(parts.length, 2 * r.info.rafterX.length);
+  const ends = new Set(parts.flatMap((m) => { const ys = m.shape.poly.map((q) => q[0]); return [Math.round(Math.min(...ys)), Math.round(Math.max(...ys))]; }));
+  assert.ok(ends.has(3000));
+  assert.equal(r.members.filter((m) => m.kind === 'scab').length, 2 * r.info.rafterX.length);
+  // splitting never costs more stock than whole rafters
+  const s2 = fresh((st) => { st.dims.W = 4000; bw(st, 2000); });
+  const whole = fresh((st) => { st.dims.W = 4000; bw(st, 2000); st.roof.splice = 'none'; });
+  const bars = (s) => report(build(s), s).timber.find((x) => x.sec === 'f45').count;
+  assert.ok(bars(s2) <= bars(whole));
+  // loft joists over the bearing wall
+  const g = build(fresh((st) => { st.dims.W = 7000; st.dims.L = 5000; st.roof.type = 'gable'; st.roof.pitch = 30; bw(st, 2400); bw(st, 4600); }));
+  const ties = g.members.filter((m) => m.kind === 'tie');
+  assert.ok(ties.some((m) => Math.abs(m.shape.poly[1][0] - 2400) < 1 || Math.abs(m.shape.poly[0][0] - 2400) < 1 || Math.abs(m.shape.poly[1][0] - 4600) < 1));
+  assert.ok(ties.every((m) => m.len <= 6000));
+  // plates go to the order
+  const sp = fresh((st) => { st.dims.W = 6000; bw(st, 3000); st.roof.splice = 'plate'; });
+  assert.ok(report(build(sp), sp).extras.some((e) => /Płytki kolczaste/.test(e.name)));
+});
+
+test('review 7: rafters never lapped, long ties lapped with bolts when none, tie ends below rafter top, no stud in tie zone', () => {
+  const bw = (st, c) => st.partitions.push({ id: 'b' + c, orient: 'x', c, a: 95, b: st.dims.L - 95, h: 2000, bearing: true, openings: [] });
+  const lap = build(fresh((st) => { st.dims.W = 6000; bw(st, 3000); st.roof.splice = 'lap'; }));
+  const rx = lap.info.rafterX;
+  assert.ok(lap.members.filter((m) => m.kind === 'rafter').every((m) => rx.some((x) => Math.abs(m.shape.d[0] - x) < 0.5)), 'rafter piece moved out of plane');
+  const s = fresh((st) => { st.dims.W = 7000; st.dims.L = 5000; st.roof.type = 'gable'; st.roof.pitch = 30; st.roof.splice = 'none'; });
+  const r = build(s), rep = report(r, s);
+  assert.ok(r.members.filter((m) => m.kind === 'tie').every((m) => m.len <= 6000));
+  assert.ok(rep.extras.some((e) => /zakład/.test(e.name)));
+  const zt = (y) => r.info.zr(y) + 95 / r.info.cs;
+  for (const m of r.members.filter((x) => x.kind === 'tie')) for (const [y, z] of m.shape.poly) assert.ok(z <= Math.max(r.info.Tf + 95, zt(y)) + 0.5 && z <= zt(y) + 0.5 || z <= r.info.Tf + 0.5, `tie corner above rafter at y ${y}`);
+  const g = build(fresh((st) => { st.dims.W = 7000; st.dims.L = 5000; st.roof.type = 'gable'; st.roof.pitch = 30; bw(st, 2400); bw(st, 4600); }));
+  const scabs = g.members.filter((m) => m.kind === 'scab' && m.name.includes('ściągu'));
+  const studs = g.members.filter((m) => m.wall && m.wall.startsWith('b') && ['stud', 'nog'].includes(m.kind));
+  const hit = studs.filter((m) => scabs.some((c) => { const xs = m.shape.poly.map((p) => p[0]); return Math.min(...xs) < c.shape.d[1] && Math.max(...xs) > c.shape.d[0] && Math.min(...m.shape.poly.map((p) => p[1])) < c.shape.poly[2][1] && Math.max(...m.shape.poly.map((p) => p[1])) > c.shape.poly[0][1]; }));
+  assert.equal(hit.length, 0);
 });
 
 test('state survives a share link', () => {

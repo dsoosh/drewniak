@@ -13,11 +13,13 @@ export function report(res, s) {
   for (const sec of ['b100', 'f45', 'l50']) {
     const list = bySec[sec];
     if (!list) continue;
-    const stock = s.stock[sec].len;
-    const pack = packBars(list, stock, s.kerf);
+    const stock = s.stock[sec].len, unit = s.stock[sec].unit || null;
+    const pack = packBars(list, stock, s.kerf, 300, unit);
     const used = list.reduce((t, p) => t + p.len, 0);
-    out.timber.push({ sec, name: SECTIONS[sec].name + (sec === 'b100' && stock === 6500 ? ' (połówka belki 13 m)' : ''), stock, count: pack.bars.length, pieces: list.length, bars: pack.bars, tooLong: pack.tooLong, used, waste: pack.bars.length * stock - used });
-    addCost(`${SECTIONS[sec].name} × ${stock / 1000} m`.replace('.', ','), pack.bars.length, 'szt.', s.stock[sec].price);
+    const buyLen = unit || stock, count = pack.units;
+    // 100×100: cut from 13 m beams, ordered and priced in 6.5 m halves
+    out.timber.push({ sec, name: SECTIONS[sec].name + (unit ? ' (połówki belki 13 m)' : ''), stock, buyLen, unit, count, beams: pack.bars.length, pieces: list.length, bars: pack.bars, tooLong: pack.tooLong, used, waste: count * buyLen - used });
+    addCost(`${SECTIONS[sec].name} × ${buyLen / 1000} m`.replace('.', ',') + (unit ? ' (połówka belki 13 m)' : ''), count, 'szt.', s.stock[sec].price);
   }
 
   const sheetPack = (pieces, st) => {
@@ -56,14 +58,21 @@ export function report(res, s) {
   const perim = 2 * (s.dims.L + s.dims.W);
   out.extras.push({ name: 'Kotwy podwalina–rama (co ≤ 1,2 m)', qty: Math.ceil(perim / 1200) + 4, unit: 'szt.' });
   out.extras.push({ name: 'Taśma perforowana na narożniki oczepu', qty: 4, unit: 'szt.' });
-  const rafters = res.members.filter((m) => m.kind === 'rafter').length;
+  // rafters by position, not by spliced pieces
+  const rafters = res.info.rafterX.length * (s.roof.type === 'gable' ? 2 : 1);
   const bearing = (res.info.parts || []).filter((p) => p.bearing);
   const rafterLines = res.info.rafterX.length;
   out.extras.push({ name: 'Łączniki krokwiowe (krokiew–oczep)', qty: rafters * 2 - (s.roof.type === 'gable' ? rafters : 0) + bearing.length * rafterLines, unit: 'szt.' });
   if (bearing.length) out.extras.push({ name: 'Kotwy podwaliny ściany nośnej do legarów', qty: bearing.reduce((t, p) => t + Math.ceil((p.b - p.a) / 1200) + 1, 0), unit: 'szt.' });
   if (res.info.headerBrackets) out.extras.push({ name: 'Kątowniki pod nadproża między słupkami', qty: res.info.headerBrackets, unit: 'szt.' });
-  if (res.info.rafterSplices) out.extras.push({ name: 'Nakładki na styk krokwi + śruby M12', qty: res.info.rafterSplices, unit: 'kpl.' });
-  if (s.roof.type === 'gable') out.extras.push({ name: 'Nakładki kalenicowe (para krokwi)', qty: rafters, unit: 'szt.' });
+  const sp = res.info.splices || { rafters: 0, ties: 0, method: 'none' };
+  const joints = sp.rafters + sp.ties;
+  const rm = sp.method === 'lap' || sp.method === 'none' ? 'scab' : sp.method, tm = sp.tieMethod || sp.method;
+  const plates = (rm === 'plate' ? sp.rafters : 0) + (tm === 'plate' ? sp.ties : 0);
+  if (plates) out.extras.push({ name: 'Płytki kolczaste (para na styk)', qty: plates * 2, unit: 'szt.' });
+  if (sp.ties && tm === 'lap') out.extras.push({ name: 'Śruby M12 z podkładkami na styki ściągów na zakład', qty: sp.ties * 2, unit: 'kpl.' });
+  if (sp.ties && tm === 'scab') out.extras.push({ name: 'Śruby M12 do nakładek ściągów', qty: sp.ties * 8, unit: 'kpl.' });
+  if (s.roof.type === 'gable') out.extras.push({ name: 'Nakładki kalenicowe (para krokwi)', qty: res.info.rafterX.length, unit: 'szt.' });
   else out.extras.push({ name: 'Obróbka górnej krawędzi dachu', qty: (res.roof.Lr / 1000).toFixed(1).replace('.', ','), unit: 'm' });
   const osb = (out.wall?.count || 0) + (out.wallIn?.count || 0) + out.floor.count;
   out.extras.push({ name: 'Gwoździe lub wkręty do OSB (co 150 / 300 mm)', qty: Math.ceil((osb * 60) / 50) * 50, unit: 'szt.' });
