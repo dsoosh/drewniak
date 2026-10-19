@@ -27,3 +27,13 @@ Ceny: puste pola, suma tylko z wpisanych. Przedsionek 3,1 × 2,5 m stoi na 6 kot
 ## Risks / Trade-offs
 
 - Ceny się starzeją → wszystkie są edytowalne, a strona podaje datę cennika (2026).
+
+## Recenzja mistrza ciesielskiego (2026-10-19, runda 4)
+
+| Uwaga | Decyzja |
+|---|---|
+| Belki poprzeczne bez kotwy w liniach pośrednich przechodziły całą szerokość | W liniach pośrednich i pod ścianami nośnymi kotwa pod każdą belką poprzeczną; co `kT` tylko pod belkami podłużnymi. |
+| Styk belki podłużnej w przęśle między kotwami | Styki tylko nad kotwą. |
+| Brak oceny obciążenia kotwy | Szacunek dla najbardziej obciążonej kotwy w podsumowaniu, ostrzeżenie od 10 kN (sprawdzić u producenta dla gruntu). |
+| 1,0 kN/m² opisane jako „składzik” | „Schowek na narzędzia, przedsionek”, obciążenia kontroli widoczne w podsumowaniu i PDF, skill zaktualizowany. |
+| Podpowiedź bez konkretu przy za dużym rozstawie kotew | Podpowiedź podaje rozstaw, przy którym belka podłużna przechodzi. |

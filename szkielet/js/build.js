@@ -56,30 +56,39 @@ export function build(s) {
   out.info.eaveTrib = Math.max(eaveTrib(true), eaveTrib(false));
 
   // ---------- base frame ----------
-  const nT = Math.max(2, Math.ceil((L - BEAM) / s.base.maxSpan) + 1);
+  // ground anchors along each line at ≤ anchorMax; transverse beams at ≤ maxSpan and over every anchor
+  const segA = Math.max(1, Math.ceil((L - BEAM) / s.base.anchorMax - EPS));
+  const needT = Math.max(1, Math.ceil((L - BEAM) / (s.base.maxSpan * 1.01) - EPS));
+  const kT = Math.ceil(needT / segA);
+  const nT = segA * kT + 1;
   const beamX = [...Array(nT)].map((_, i) => (i * (L - BEAM)) / (nT - 1));
+  const anchorX = beamX.filter((_, i) => i % kT === 0);
   for (const [y0, side] of [[0, 'przód'], [W - BEAM, 'tył']]) {
-    for (const [x0, x1] of splitAtSupports(0, L, beamX.map((x) => x + BEAM / 2), s.stock.b100.len))
-      add({ kind: 'beam', sec: 'b100', len: x1 - x0, group: 'base', name: `Belka podłużna (${side})`, note: x1 - x0 < L ? 'styk nad belką poprzeczną' : '', shape: box('xy', x0, y0, x1, y0 + BEAM, 0, BEAM) });
+    for (const [x0, x1] of splitAtSupports(0, L, anchorX.map((x) => x + BEAM / 2), s.stock.b100.len))
+      add({ kind: 'beam', sec: 'b100', len: x1 - x0, group: 'base', name: `Belka podłużna (${side})`, note: x1 - x0 < L ? 'styk nad kotwą' : '', shape: box('xy', x0, y0, x1, y0 + BEAM, 0, BEAM) });
   }
   for (const x0 of beamX)
     add({ kind: 'beam', sec: 'b100', len: W - 2 * BEAM, group: 'base', name: 'Belka poprzeczna', note: 'na wieszakach w belkach podłużnych', shape: box('xy', x0, BEAM, x0 + BEAM, W - BEAM, 0, BEAM) });
-  // supports under the middle of transverse beams: as many as needed to keep spans ≤ maxSpan
-  const nMid = s.base.midSupport === 'no' ? 0 : Math.max(s.base.midSupport === 'yes' ? 1 : 0, s.base.midSupport === 'auto' && W > 2000 ? Math.ceil((W - BEAM) / s.base.maxSpan - EPS) - 1 : 0);
-  const mid = nMid > 0;
-  // bearing walls get their own support line; regular mid supports closer than 300 mm to it are dropped
+  // anchor lines across the width: both longitudinal beams, every bearing wall, and intermediate
+  // lines wherever a gap exceeds anchorMax (those anchors sit under the transverse beams)
   const fixedY = [BEAM / 2, ...bearing.map((p) => p.c).sort((p, q) => p - q), W - BEAM / 2];
   const midY = [];
   for (let i = 0; i + 1 < fixedY.length; i++) {
     if (i > 0) midY.push(fixedY[i]);
     const gap = fixedY[i + 1] - fixedY[i];
-    const k = nMid === 0 ? 1 : Math.max(1, Math.ceil(gap / s.base.maxSpan - EPS));
+    const k = Math.max(1, Math.ceil(gap / s.base.anchorMax - EPS));
     for (let j = 1; j < k; j++) midY.push(fixedY[i] + (gap * j) / k);
   }
-  if (nMid === 1 && !bearing.length && midY.length === 0) midY.push(W / 2);
   midY.sort((p, q) => p - q);
-  out.info.supports = beamX.flatMap((x) => [[x + BEAM / 2, BEAM / 2], [x + BEAM / 2, W - BEAM / 2], ...midY.map((y) => [x + BEAM / 2, y])]);
+  const mid = midY.length > 0;
+  // outer lines: anchors every ≤ anchorMax; intermediate and bearing-wall lines: under every
+  // transverse beam, because a transverse beam without one would span the full width
+  out.info.supports = [
+    ...anchorX.flatMap((x) => [[x + BEAM / 2, BEAM / 2], [x + BEAM / 2, W - BEAM / 2]]),
+    ...beamX.flatMap((x) => midY.map((y) => [x + BEAM / 2, y])),
+  ];
   out.info.beamX = beamX;
+  out.info.anchorX = anchorX;
   const supY = [BEAM / 2, ...midY, W - BEAM / 2];
   out.info.midSpan = Math.max(...supY.slice(1).map((y, i) => y - supY[i]));
   out.info.midY = midY;
@@ -191,7 +200,7 @@ export function build(s) {
   // ---------- roof ----------
   buildRoof(s, out, { zr, Tf, Tb, a, tn, cs, sn, mono, backHigh, zf, bearing });
 
-  checks(s, out, { joistY, beamX, mid, cs, mono, bearing });
+  checks(s, out, { joistY, beamX, anchorX, mid, cs, mono, bearing });
   return out;
 }
 
@@ -720,10 +729,25 @@ function checks(s, out, g) {
   const jSp = Math.max(...g.joistY.slice(1).map((y, i) => y - g.joistY[i]));
   const bSp = Math.max(...g.beamX.slice(1).map((x, i) => x - g.beamX[i]));
   add(`Legar podłogi 45×95, rozstaw ${R(jSp)}`, s.loads.floor * jSp / 1000, bSp, I(T, D), 'zmniejsz rozstaw belek poprzecznych');
-  add(`Belka poprzeczna 100×100${g.mid ? ' z podporami pośrednimi' : ''}`, s.loads.floor * bSp / 1000, out.info.midSpan, I(BEAM, BEAM), 'dodaj podporę pod środkiem belek poprzecznych');
+  add(`Belka poprzeczna 100×100${g.mid ? ' z kotwami pośrednimi' : ''}`, s.loads.floor * bSp / 1000, out.info.midSpan, I(BEAM, BEAM), 'zmniejsz rozstaw kotew (dojdzie linia kotew pod środkiem) albo rozstaw belek poprzecznych');
+  const aSp = Math.max(...g.anchorX.slice(1).map((x, i) => x - g.anchorX[i]));
   // longitudinal beam: half the floor, the eaves wall and the roof from its side, between supports
   const qLong = (s.loads.floor * (W / 2) + s.loads.roof * out.info.eaveTrib) / 1000 + 0.5;
-  add('Belka podłużna 100×100 pod ścianą', qLong, bSp, I(BEAM, BEAM), 'zmniejsz rozstaw belek poprzecznych (więcej podpór)');
+  const aOk = Math.floor(Math.cbrt((384 * E * I(BEAM, BEAM)) / (1500 * qLong)) / 50) * 50;
+  add(`Belka podłużna 100×100 pod ścianą, kotwy co ${R(aSp)}`, qLong, aSp, I(BEAM, BEAM), `zmniejsz rozstaw kotew do ok. ${aOk} mm`);
+  // load on the most loaded anchor (characteristic): outer line q × anchor spacing, or an
+  // intermediate line taking its floor strip (+ roof from a bearing wall) per transverse beam
+  const ys = [BEAM / 2, ...out.info.midY, W - BEAM / 2];
+  const strip = (i) => ((ys[i + 1] ?? ys[i]) - (ys[i - 1] ?? ys[i])) / 2;
+  const qOuter = (s.loads.floor * (ys[1] - ys[0]) / 2 + s.loads.roof * out.info.eaveTrib) / 1000 + 0.5;
+  const bSpan = Math.max(...g.beamX.slice(1).map((x, i) => x - g.beamX[i]));
+  const rOuter = qOuter * aSp / 1000;
+  const rMid = Math.max(0, ...out.info.midY.map((y, k) => {
+    const wall = g.bearing.find((p) => Math.abs(p.c - y) < 1);
+    return ((s.loads.floor * strip(k + 1) + (wall ? s.loads.roof * (out.walls[wall.id]?.trib || 0) + 500 : 0)) / 1000) * bSpan / 1000;
+  }));
+  out.info.anchorLoad = Math.max(rOuter, rMid);
+  if (out.info.anchorLoad > 10) out.warnings.push(`Najbardziej obciążona kotwa dostaje ok. ${out.info.anchorLoad.toFixed(1).replace('.', ',')} kN – sprawdź nośność kotwy u producenta dla swojego gruntu albo zmniejsz rozstaw kotew.`);
   for (const p of g.bearing) {
     const tribW = out.walls[p.id]?.trib || 0;
     add(`Legar podwójny pod ścianą nośną (oś ${R(p.c)})`, (s.loads.roof * tribW + s.loads.floor * 0.2) / 1000 + 0.5, bSp, 2 * I(T, D), 'gęściej belki poprzeczne albo belka 100×100 pod ścianą');

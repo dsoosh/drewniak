@@ -101,7 +101,7 @@ export async function makePdf(res, rep, state, img3d) {
   order.push([rep.floor.name, `${rep.floor.count} płyt`, `${rep.floor.area.toFixed(1).replace('.', ',')} m²`]);
   for (const c of rep.cover) order.push([c.name, `${c.count} ark.`, `${state.roof.cover.len}×${state.roof.cover.wid}`]);
   for (const e of rep.extras) order.push([e.name, `${e.qty} ${e.unit}`, '']);
-  if (rep.priced) order.push(['Razem (pozycje z ceną)', `${fmt(rep.total)} zł`, '']);
+  order.push(['Koszt materiału (szacunek)', `${fmt(rep.cost.total)} zł`, 'szczegóły na stronie 2']);
   doc.setFont('DejaVu', 'bold'); doc.setFontSize(10); doc.text('Do zamówienia', M, M + 12);
   let y = table([{ cells: ['Pozycja', 'Ilość', 'Uwagi'], bold: true, fill: true }, ...order.map((r) => ({ cells: r }))], ['t', 'n', 't'], M, M + 18, [68, 20, 56]);
   y += 4;
@@ -117,6 +117,15 @@ export async function makePdf(res, rep, state, img3d) {
     for (const w of res.warnings) { const lines = doc.splitTextToSize(`• ${w}`, 125); doc.text(lines, 160, yr); yr += lines.length * 3.6; }
     doc.setTextColor(29, 36, 32);
   }
+
+  // cost estimate
+  header('Koszt materiału (ceny orientacyjne 2026)');
+  const c = rep.cost;
+  y = table([{ cells: ['Pozycja', 'Ilość', 'Cena', 'Razem', 'Udział'], bold: true, fill: true },
+    ...c.items.map((i) => ({ cells: [i.name, `${i.qty} ${i.unit}`, `${fmt(i.price)} zł`, `${fmt(i.sum)} zł`, `${Math.round((i.sum / c.total) * 100)}%`] })),
+    { cells: ['Razem', '', '', `${fmt(c.total)} zł`, ''], bold: true, fill: true }], ['t', 'n', 'n', 'n', 'n'], M, M + 12, [120, 30, 30, 34, 22]);
+  doc.setFontSize(8.5);
+  doc.text(doc.splitTextToSize(`Z kotwami gruntowymi w cenie 120–150 zł: ${fmt(c.min)}–${fmt(c.max)} zł. Nie wliczone: ${c.excluded.join(', ')}.`, 236), M, y + 4);
 
   // 2. drawings
   const P = PRINT_PALETTE;

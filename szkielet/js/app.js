@@ -1,5 +1,5 @@
 // Page controller: form, tabs, editing on drawings, results, saving and sharing.
-import { defaultState, normalize, encodeState, decodeState, WALL_IDS, WALL_NAMES, OPENING_NAMES, SECTIONS, uid } from './model.js';
+import { defaultState, normalize, encodeState, decodeState, WALL_IDS, WALL_NAMES, OPENING_NAMES, SECTIONS, uid, osbPrice, ANCHOR_RANGE } from './model.js';
 import { build } from './build.js';
 import { report, facts } from './report.js';
 import { elevationSVG, planSVG, roofSVG, palette } from './draw.js';
@@ -37,15 +37,16 @@ const FIELDS = [
     ['walls.nogStep', 'Rygle co', 'num', { step: 10 }],
     ['walls.nogStagger', 'Rygle na mijankę', 'chk'],
     ['walls.sheathe', 'Poszycie OSB z zewnątrz', 'chk'],
+    ['walls.sheathT', 'Grubość OSB na ściany [mm]', 'sel', { options: [12, 15, 18, 22, 25, 30].map((t) => [t, String(t)]), num: true }],
     ['walls.sheathBelow', 'Płyta zachodzi na ramę', 'num', { step: 5, show: (s) => s.walls.sheathe }],
     ['walls.sheatheIn', 'Poszycie OSB od środka', 'chk'],
     ['walls.doubleFrom', 'Podwójne słupki przy otworach od', 'num', { step: 10, note: 'węższe otwory: jeden słupek z każdej strony (także słupek z siatki), nadproże między nimi' }],
   ]],
   ['Rama i podłoga', [
     ['base.maxSpan', 'Belki poprzeczne – maks. rozstaw', 'num', { step: 10 }],
-    ['base.midSupport', 'Podpora pod środkiem belek', 'sel', { options: [['auto', 'auto (W > 2 m)'], ['yes', 'tak'], ['no', 'nie']] }],
+    ['base.anchorMax', 'Kotwy gruntowe – maks. rozstaw', 'num', { step: 50, note: 'kotwy pod belkami podłużnymi, ścianami nośnymi i w liniach pośrednich' }],
     ['floor.joistMax', 'Legary – maks. rozstaw', 'num', { step: 10 }],
-    ['floor.sheetT', 'Płyta podłogi [mm]', 'sel', { options: [[18, '18'], [22, '22'], [25, '25']], num: true }],
+    ['floor.sheetT', 'Płyta podłogi [mm]', 'sel', { options: [[18, '18'], [22, '22'], [25, '25'], [30, '30']], num: true }],
     ['floor.splitJoists', 'Łącz legary nad belką, gdy mniej odpadu', 'chk'],
   ]],
   ['Pokrycie', [
@@ -63,12 +64,13 @@ const FIELDS = [
     ['stock.f45.price', 'Cena 45×95 [zł/szt.]', 'num', { step: 0.01, opt: true }],
     ['stock.l50.price', 'Cena łaty [zł/szt.]', 'num', { step: 0.01, opt: true }],
     ['stock.b100.price', 'Cena 100×100 [zł/szt.]', 'num', { step: 0.01, opt: true }],
-    ['stock.osbWall.price', 'Cena OSB 12 [zł/płyta]', 'num', { step: 0.01, opt: true }],
-    ['stock.osbFloor.price', 'Cena OSB podłogi [zł/płyta]', 'num', { step: 0.01, opt: true }],
+    ['stock.osbWall.price', 'Cena OSB ścian [zł/płyta]', 'num', { step: 0.01, opt: true, placeholder: (s) => `cennik: ${osbPrice(s.walls.sheathT)}` }],
+    ['stock.osbFloor.price', 'Cena OSB podłogi [zł/płyta]', 'num', { step: 0.01, opt: true, placeholder: (s) => `cennik: ${osbPrice(s.floor.sheetT, true)}` }],
     ['stock.cover.price', 'Cena pokrycia [zł/arkusz]', 'num', { step: 0.01, opt: true }],
+    ['stock.anchor.price', 'Cena kotwy gruntowej [zł]', 'num', { step: 1, opt: true, note: `w sklepach ${ANCHOR_RANGE[0]}–${ANCHOR_RANGE[1]} zł, widełki pokazane w kosztorysie` }],
   ]],
   ['Obciążenia do kontroli ugięć', [
-    ['loads.floor', 'Podłoga [kN/m²]', 'num', { step: 0.1 }],
+    ['loads.floor', 'Podłoga [kN/m²]', 'num', { step: 0.1, note: '1,0 – schowek na narzędzia, przedsionek; 1,5–2,0 – pomieszczenie użytkowe. Sprawdzane jest tylko ugięcie.' }],
     ['loads.roof', 'Dach: śnieg + ciężar [kN/m²]', 'num', { step: 0.1, note: 'strefa 2: śnieg 0,8 × 0,9 = 0,72 + pokrycie i drewno' }],
   ]],
 ];
@@ -110,6 +112,7 @@ function syncForm() {
       else if (type === 'sel') el.value = String(v);
       else el.value = v ?? '';
     }
+    if (o.placeholder) el.placeholder = o.placeholder(state);
     const hide = o.show && !o.show(state);
     document.querySelectorAll(`[data-field="${p}"]`).forEach((n) => (n.dataset.hidden = hide ? '1' : '0'));
   }
@@ -173,8 +176,11 @@ function renderOrder() {
   cards.push(card(rep.floor.count, 'płyt', rep.floor.name, `podłoga ${rep.floor.area.toFixed(1).replace('.', ',')} m²`, 'var(--c-floor)'));
   for (const c of rep.cover) cards.push(card(c.count, 'arkuszy', c.name, `${state.roof.cover.len}×${state.roof.cover.wid}`, c.clear ? 'var(--c-clear)' : 'var(--c-cover)'));
   for (const e of rep.extras) cards.push(card(e.qty, e.unit, e.name, '', 'var(--muted)'));
-  if (rep.priced) cards.push(card(fmt(rep.total), 'zł', 'Razem (pozycje z ceną)', 'bez łączników i impregnatu', 'var(--accent)'));
   $('order').innerHTML = cards.join('');
+  const c = rep.cost;
+  $('cost').innerHTML = `<h2>Koszt materiału: ok. ${fmt(c.total)} zł</h2>
+<p class="hint-inline">Ceny orientacyjne (2026), do zmiany w „Materiał i ceny”. Z kotwami po ${ANCHOR_RANGE[0]}–${ANCHOR_RANGE[1]} zł: ${fmt(c.min)}–${fmt(c.max)} zł. Nie wliczone: ${c.excluded.join(', ')}.</p>
+<div class="tw"><table><thead><tr><th>Pozycja</th><th class="n">Ilość</th><th class="n">Cena</th><th class="n">Razem</th><th class="n">Udział</th></tr></thead><tbody>${c.items.map((i) => `<tr><td>${i.name}</td><td class="n">${i.qty} ${i.unit}</td><td class="n">${fmt(i.price)} zł</td><td class="n">${fmt(i.sum)} zł</td><td class="n">${Math.round((i.sum / c.total) * 100)}%</td></tr>`).join('')}<tr class="grp"><td>Razem</td><td></td><td></td><td class="n">${fmt(c.total)} zł</td><td></td></tr></tbody></table></div>`;
 }
 const card = (q, unit, w, s, c) => `<div class="card" style="--c:${c}"><div class="q">${q}<small>${unit}</small></div><div class="w">${w}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
 

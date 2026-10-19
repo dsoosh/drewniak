@@ -106,7 +106,12 @@ słupki, więc obciążenie z góry musi obejść otwór przez nadproże i słup
   (≥ 0,7), strefa 3 ≥ 1,2, strefa 4 = 1,6. Dach jednospadowy i dwuspadowy do 30°: μ = 0,8.
 - Kryterium ugięcia w generatorze: belka swobodnie podparta, C24 E = 11 000 MPa, L/300.
   To jest kontrola rozsądku, nie wymiarowanie wg Eurokodu 5 (brak nośności, docisku, wyboczenia).
-- Domyślnie: podłoga 2,0 kN/m², dach 1,3 kN/m² (śnieg + ciężar własny).
+- Domyślnie: podłoga 1,0 kN/m² (schowek na narzędzia, przedsionek — tylko ugięcie, nie nośność;
+  pomieszczenie użytkowe 1,5–2,0, magazyn wg PN-EN 1991-1-1 ≥ 7,5), dach 1,3 kN/m² (śnieg + ciężar własny).
+  Obciążenia przyjęte do kontroli muszą być widoczne na stronie i w PDF.
+- **Kotwy gruntowe** pod ramą: co ≤ 2–2,5 m pod belkami podłużnymi, a w liniach pośrednich i pod
+  ścianami nośnymi pod każdą belką poprzeczną. Styk belki podłużnej tylko nad kotwą. Mała kotwa
+  śrubowa w słabym gruncie przenosi ok. 5–15 kN — od ~10 kN na kotwę sprawdzić u producenta.
 
 ## 8. Stolarka ręczna (drobne konstrukcje, skrzynka)
 

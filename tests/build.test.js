@@ -15,7 +15,8 @@ const finite = (r) => r.members.every((m) => m.len > 0 && m.shape.poly.every(([u
 test('default shed: frame, roof and battens as built', () => {
   const r = build(fresh());
   assert.equal(r.members.filter((m) => m.name.startsWith('Belka podłużna')).length, 2);
-  assert.equal(r.members.filter((m) => m.name === 'Belka poprzeczna').length, 4);
+  assert.equal(r.members.filter((m) => m.name === 'Belka poprzeczna').length, 3);
+  assert.equal(r.info.supports.length, 6);
   assert.equal(count(r, 'rafter'), 8);
   assert.equal(r.roof.battenRows[0].length, 10);
   assert.ok(r.members.filter((m) => m.kind === 'batten').every((m) => m.len === 3701 && m.sec === 'l50'));
@@ -84,10 +85,23 @@ test('partition parallel to joists gets a joist under it', () => {
   assert.ok(r.info.joistY.some((y) => Math.abs(y + 22.5 - 1700) < 1));
 });
 
-test('mid support off makes the transverse beam check fail', () => {
-  const c = build(fresh((s) => { s.base.midSupport = 'no'; })).checks.find((x) => x.name.startsWith('Belka poprzeczna'));
+test('heavier floor load makes the transverse beam check fail and points at anchors', () => {
+  const c = build(fresh((s) => { s.loads.floor = 2.0; })).checks.find((x) => x.name.startsWith('Belka poprzeczna'));
   assert.equal(c.ok, false);
-  assert.match(c.hint, /podporę/);
+  assert.match(c.hint, /kotew/);
+});
+
+test('ground anchors: lines every ≤ anchorMax, under transverse beams, on bearing walls', () => {
+  const r = build(fresh((s) => { s.dims.L = 6000; s.dims.W = 6500; }));
+  const xs = [...new Set(r.info.supports.map(([x]) => x))].sort((a, b) => a - b);
+  const ys = [...new Set(r.info.supports.map(([, y]) => Math.round(y)))].sort((a, b) => a - b);
+  assert.ok(xs.slice(1).every((x, i) => x - xs[i] <= 2500 + 1));
+  assert.ok(ys.slice(1).every((y, i) => y - ys[i] <= 2500 + 1));
+  const centers = r.info.beamX.map((x) => x + 50);
+  assert.ok(xs.every((x) => centers.some((c) => Math.abs(c - x) < 0.5)));
+  assert.ok(r.info.beamX.slice(1).every((x, i) => x - r.info.beamX[i] <= 1500 * 1.01));
+  const b = build(fresh((s) => { s.dims.W = 4000; s.partitions.push({ id: 'b', orient: 'x', c: 2000, a: 95, b: 3006, h: 2000, bearing: true, openings: [] }); }));
+  assert.ok(b.info.supports.some(([, y]) => y === 2000));
 });
 
 test('large and steep building stays consistent', () => {
@@ -154,7 +168,7 @@ test('wide gable roof: tie lapped and warned, more mid supports', () => {
   const r = build(fresh((s) => { s.dims.L = 6000; s.dims.W = 6500; s.roof.type = 'gable'; }));
   assert.ok(r.warnings.some((w) => /Ściąg ma 6500/.test(w)));
   assert.ok(r.members.filter((m) => m.kind === 'tie').every((m) => m.len <= 6000));
-  assert.ok(r.info.midSpan <= 1500);
+  assert.ok(r.info.midSpan <= 2500);
 });
 
 test('rim joists under gable walls and verge boards on the roof', () => {
@@ -198,7 +212,7 @@ test('bearing wall: plate under rafters, notched rafters, supports and double jo
   const top = Math.max(...plate.flatMap((m) => m.upoly.map((q) => q[1])));
   assert.ok(Math.abs(top - p.Tp) < 0.5);
   assert.ok(Math.abs(p.Tp - r.info.zr(2000 - 47.5 + r.info.sw)) < 0.5);
-  assert.ok(r.info.supports.filter(([, y]) => y === 2000).length === r.info.beamX.length);
+  assert.ok(r.info.supports.filter(([, y]) => y === 2000).length === r.info.anchorX.length);
   assert.ok(r.info.joistY.filter((y) => y > 2000 - 100 && y < 2000 + 60).length >= 2);
   const raf = r.members.find((m) => m.kind === 'rafter');
   assert.ok(raf.shape.poly.some(([y, z]) => Math.abs(y - (2000 - 47.5)) < 0.5));
@@ -298,6 +312,33 @@ test('review 3: shared stud, header hanger load, seam nogging over a header, int
   const backTop = Math.max(...r4.walls.back.sheetsIn.map((p) => p.bbox[3]));
   assert.ok(backTop <= r4.info.zr(s4.dims.W - 95) + 0.5);
   assert.ok(r4.walls.back.sheetsIn.some((p) => Math.abs(p.bbox[1] - 2550) < 0.5 || Math.abs(p.bbox[3] - 2550) < 0.5));
+});
+
+test('cost estimate: default prices, OSB thickness from the table, anchor range', () => {
+  const s = fresh(), c = report(build(s), s).cost;
+  const get = (re) => c.items.find((i) => re.test(i.name));
+  assert.equal(get(/100×100/).price, 189);
+  assert.equal(get(/45×95/).price, 69);
+  assert.equal(get(/50×50/).price, 22);
+  assert.equal(get(/Kotwy gruntowe/).qty, 6);
+  assert.equal(get(/na ściany/).price, 69);
+  assert.ok(Math.abs(c.total - c.items.reduce((a, i) => a + i.sum, 0)) < 0.01);
+  assert.equal(c.max - c.min, 6 * 30);
+  const s18 = fresh((st) => { st.walls.sheathT = 18; });
+  assert.equal(report(build(s18), s18).cost.items.find((i) => /na ściany/.test(i.name)).price, 98);
+  const own = fresh((st) => { st.walls.sheathT = 18; st.stock.osbWall.price = 90; });
+  assert.equal(report(build(own), own).cost.items.find((i) => /na ściany/.test(i.name)).price, 90);
+});
+
+test('review 4: intermediate-line anchors under every transverse beam, beam joints over anchors', () => {
+  const r = build(fresh((s) => { s.dims.L = 7200; s.dims.W = 4000; }));
+  for (const y of r.info.midY) for (const x of r.info.beamX) assert.ok(r.info.supports.some(([ax, ay]) => Math.abs(ax - x - 50) < 0.5 && Math.abs(ay - y) < 0.5));
+  const ax = r.info.anchorX.map((x) => x + 50);
+  for (const m of r.members.filter((x) => x.name.startsWith('Belka podłużna'))) {
+    const end = m.shape.poly[1][0];
+    if (end < 7199) assert.ok(ax.some((a) => Math.abs(a - end) < 0.5), `joint at ${end} not over an anchor`);
+  }
+  assert.ok(r.info.anchorLoad > 0);
 });
 
 test('state survives a share link', () => {

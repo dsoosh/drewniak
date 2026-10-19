@@ -7,6 +7,13 @@ export const SECTIONS = {
   l50: { name: 'Łata 50×50', w: 50, h: 50 },
 };
 
+// OSB/3 2500×1250, price per sheet, DIY stores 2026 (25 and 30 mm estimated from the trend);
+// tongue-and-groove floor sheets cost about 5% more.
+export const OSB_PRICES = { 12: 69, 15: 80, 18: 98, 22: 124, 25: 145, 30: 175 };
+export const osbPrice = (t, floor = false) => Math.round((OSB_PRICES[t] || 0) * (floor ? 1.05 : 1));
+export const PRICE_DEFAULTS = { b100: 189, f45: 69, l50: 22, cover: 45, anchor: 135 };
+export const ANCHOR_RANGE = [120, 150];
+
 export const WALL_IDS = ['front', 'back', 'left', 'right'];
 export const WALL_NAMES = { front: 'Przód', back: 'Tył', left: 'Lewa', right: 'Prawa' };
 export const OPENING_NAMES = { door: 'Drzwi', window: 'Okno', opening: 'Otwór' };
@@ -20,7 +27,7 @@ export function defaultState() {
   return {
     v: 1,
     dims: { L: 3101, W: 2500 },
-    base: { maxSpan: 1500, midSupport: 'auto' },
+    base: { maxSpan: 1500, anchorMax: 2500 },
     floor: { joistMax: 600, sheetT: 25, splitJoists: false },
     walls: { h0: 2350, studMax: 625, nogStep: 800, nogStagger: true, doubleFrom: 1200, sheatheIn: false, sheathT: 12, sheathBelow: 50, sheathe: true },
     roof: {
@@ -37,15 +44,16 @@ export function defaultState() {
     },
     partitions: [],
     stock: {
-      b100: { len: 6500, price: '' },   // sold as halves of 13 m beams
-      f45: { len: 6000, price: '' },
-      l50: { len: 5400, price: '' },
-      osbWall: { name: 'OSB/3 12 mm', w: 1250, h: 2500, price: '' },
+      b100: { len: 6500, price: 189 },   // sold as halves of 13 m beams
+      f45: { len: 6000, price: 69 },
+      l50: { len: 5400, price: 22 },
+      osbWall: { name: 'OSB/3 12 mm', w: 1250, h: 2500, price: '' },    // '' = price from OSB_PRICES
       osbFloor: { name: 'OSB/3 25 mm pióro-wpust', w: 1250, h: 2500, price: '' },
-      cover: { price: '' },
+      cover: { price: 45 },
+      anchor: { price: 135 },
     },
     kerf: 3,
-    loads: { floor: 2.0, roof: 1.3 },
+    loads: { floor: 1.0, roof: 1.3 },
   };
 }
 
@@ -70,6 +78,12 @@ export function normalize(s) {
   for (const w of WALL_IDS) o.openings[w] = (o.openings[w] || []).map(fixOpening);
   o.partitions = (o.partitions || []).map((p) => ({ id: p.id || uid('p'), orient: p.orient === 'y' ? 'y' : 'x', c: +p.c, a: +p.a, b: +p.b, h: num(p.h, o.walls.h0), sheathe: p.sheathe === true ? 'both' : ['a', 'b', 'both'].includes(p.sheathe) ? p.sheathe : 'none', bearing: !!p.bearing && p.orient !== 'y', openings: (p.openings || []).map(fixOpening) }));
   if (!Array.isArray(o.roof.clear)) o.roof.clear = [];
+  // older saves had empty prices: fall back to the price list
+  for (const k of ['b100', 'f45', 'l50', 'cover', 'anchor']) if (o.stock[k].price === '' || o.stock[k].price === null) o.stock[k].price = PRICE_DEFAULTS[k];
+  if (!OSB_PRICES[o.walls.sheathT]) o.walls.sheathT = 12;
+  if (![18, 22, 25, 30].includes(+o.floor.sheetT)) o.floor.sheetT = 25;
+  o.stock.osbWall.name = `OSB/3 ${o.walls.sheathT} mm`;
+  o.stock.osbFloor.name = `OSB/3 ${o.floor.sheetT} mm pióro-wpust`;
   return o;
 }
 

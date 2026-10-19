@@ -1,11 +1,12 @@
 // Order summary, cut list and layouts derived from a build result. Pure, Node-testable.
-import { SECTIONS } from './model.js';
+import { SECTIONS, osbPrice, ANCHOR_RANGE } from './model.js';
 import { packBars, packSheets, groupCuts } from './cut.js';
 
 export function report(res, s) {
-  const out = { timber: [], wall: null, floor: null, cover: [], extras: [], cuts: groupCuts(res.members), total: 0, priced: false };
+  const out = { timber: [], wall: null, floor: null, cover: [], extras: [], cuts: groupCuts(res.members) };
   const price = (p) => (p === '' || p === null || p === undefined || !Number.isFinite(+p) ? null : +p);
-  const addCost = (qty, p) => { const v = price(p); if (v !== null) { out.total += qty * v; out.priced = true; } };
+  const items = [];
+  const addCost = (name, qty, unit, p) => { const v = price(p); if (v !== null && qty > 0) items.push({ name, qty, unit, price: v, sum: qty * v }); };
 
   const bySec = {};
   for (const m of res.members) (bySec[m.sec] ||= []).push({ len: m.len, label: m.name });
@@ -16,7 +17,7 @@ export function report(res, s) {
     const pack = packBars(list, stock, s.kerf);
     const used = list.reduce((t, p) => t + p.len, 0);
     out.timber.push({ sec, name: SECTIONS[sec].name + (sec === 'b100' && stock === 6500 ? ' (połówka belki 13 m)' : ''), stock, count: pack.bars.length, pieces: list.length, bars: pack.bars, tooLong: pack.tooLong, used, waste: pack.bars.length * stock - used });
-    addCost(pack.bars.length, s.stock[sec].price);
+    addCost(`${SECTIONS[sec].name} × ${stock / 1000} m`.replace('.', ','), pack.bars.length, 'szt.', s.stock[sec].price);
   }
 
   const sheetPack = (pieces, st) => {
@@ -27,10 +28,11 @@ export function report(res, s) {
     return { name: st.name, count: sheets.length, sheets, area: pieces.reduce((t, p) => t + p.area, 0) / 1e6, tooBig: pk.tooBig };
   };
   const outer = res.wallSheets.filter((p) => p.side !== 'in'), inner = res.wallSheets.filter((p) => p.side === 'in');
-  if (outer.length) { out.wall = sheetPack(outer, s.stock.osbWall); addCost(out.wall.count, s.stock.osbWall.price); }
-  if (inner.length) { out.wallIn = sheetPack(inner, s.stock.osbWall); addCost(out.wallIn.count, s.stock.osbWall.price); }
+  const wallPrice = price(s.stock.osbWall.price) ?? osbPrice(s.walls.sheathT);
+  if (outer.length) { out.wall = sheetPack(outer, s.stock.osbWall); addCost(`${s.stock.osbWall.name} na ściany`, out.wall.count, 'płyt', wallPrice); }
+  if (inner.length) { out.wallIn = sheetPack(inner, s.stock.osbWall); addCost(`${s.stock.osbWall.name} od środka i ścianki`, out.wallIn.count, 'płyt', wallPrice); }
   out.floor = sheetPack(res.floorSheets, { ...s.stock.osbFloor, name: `OSB/3 ${s.floor.sheetT} mm pióro-wpust` });
-  addCost(out.floor.count, s.stock.osbFloor.price);
+  addCost(`OSB/3 ${s.floor.sheetT} mm pióro-wpust (podłoga)`, out.floor.count, 'płyt', price(s.stock.osbFloor.price) ?? osbPrice(s.floor.sheetT, true));
 
   // covering: full-length cells take a sheet each, shorter ones are cut from sheets (1D)
   const cov = s.roof.cover;
@@ -41,14 +43,15 @@ export function report(res, s) {
     const part = cells.filter((c) => c.len < cov.len - 1).map((c) => ({ len: c.len, label: c.key }));
     const n = full + packBars(part, cov.len, s.kerf, 50).bars.length;
     out.cover.push({ clear, name: clear ? `${cov.name} przezroczysta` : cov.name, count: n, cells: cells.length });
-    if (!clear) addCost(n, s.stock.cover.price);
+    addCost(clear ? `${cov.name} przezroczysta (cena jak pokrycia)` : cov.name, n, 'ark.', s.stock.cover.price);
   }
   const sheetsTotal = out.cover.reduce((t, c) => t + c.count, 0);
   out.extras.push({ name: 'Gwoździe do pokrycia', qty: sheetsTotal * cov.nails, unit: 'szt.' });
   if (s.roof.type === 'gable') out.extras.push({ name: 'Gąsiory', qty: Math.ceil(res.roof.Lr / 850), unit: 'szt.' });
   const nSup = res.info.supports.length;
-  out.extras.push({ name: 'Podpory pod ramą (bloczki / kotwy)', qty: nSup, unit: 'szt.' });
-  out.extras.push({ name: 'Kotwy rama–podpora + przekładka z papy', qty: nSup, unit: 'kpl.' });
+  out.extras.push({ name: 'Kotwy gruntowe pod ramą', qty: nSup, unit: 'szt.' });
+  out.extras.push({ name: 'Przekładka z papy na głowicę kotwy', qty: nSup, unit: 'szt.' });
+  addCost('Kotwy gruntowe', nSup, 'szt.', s.stock.anchor.price);
   out.extras.push({ name: 'Wieszaki belek 100×100', qty: res.info.beamX.length * 2, unit: 'szt.' });
   const perim = 2 * (s.dims.L + s.dims.W);
   out.extras.push({ name: 'Kotwy podwalina–rama (co ≤ 1,2 m)', qty: Math.ceil(perim / 1200) + 4, unit: 'szt.' });
@@ -65,6 +68,14 @@ export function report(res, s) {
   const osb = (out.wall?.count || 0) + (out.wallIn?.count || 0) + out.floor.count;
   out.extras.push({ name: 'Gwoździe lub wkręty do OSB (co 150 / 300 mm)', qty: Math.ceil((osb * 60) / 50) * 50, unit: 'szt.' });
   out.extras.push({ name: 'Impregnat do czół po cięciu', qty: 1, unit: 'l' });
+  const total = items.reduce((t, i) => t + i.sum, 0);
+  const anchorPrice = price(s.stock.anchor.price) ?? 0;
+  out.cost = {
+    items, total,
+    min: total + nSup * (ANCHOR_RANGE[0] - anchorPrice),
+    max: total + nSup * (ANCHOR_RANGE[1] - anchorPrice),
+    excluded: ['łączniki krokwiowe, kątowniki, wieszaki, taśmy', 'gwoździe i wkręty', 'kotwy podwaliny', 'gąsiory i obróbki', 'papa i impregnat'],
+  };
   return out;
 }
 
@@ -72,6 +83,8 @@ export function facts(res, s) {
   const i = res.info, { L, W } = s.dims;
   const list = [
     ['Obrys ramy', `${L} × ${W}`],
+    ['Kotwy gruntowe', `${res.info.supports.length} szt., najwyżej ok. ${res.info.anchorLoad.toFixed(1).replace('.', ',')} kN na kotwę`],
+    ['Kontrola ugięć przy', `podłoga ${String(s.loads.floor).replace('.', ',')} kN/m², dach ${String(s.loads.roof).replace('.', ',')} kN/m²`],
     ['Powierzchnia', `${((L * W) / 1e6).toFixed(2).replace('.', ',')} m²`],
     ['Ściana przód', `${Math.round(i.Tf - i.zf)}`],
     ['Ściana tył', `${Math.round(i.Tb - i.zf)}`],
