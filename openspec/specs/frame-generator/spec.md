@@ -19,7 +19,8 @@ run along the length between the rim joists at a spacing not larger than the con
 maximum, with an extra joist under every floor-sheet seam and under every partition parallel to
 the joists. A joist SHALL be one piece when it fits the stock length; longer joists SHALL be
 joined only over a transverse beam. The floor sheet thickness SHALL be one of 18, 22, 25 or
-30 mm and the wall sheathing thickness one of 12, 15, 18, 22, 25 or 30 mm.
+30 mm (default 30 mm, as built) and the wall sheathing thickness one of 12, 15, 18, 22, 25 or
+30 mm.
 
 #### Scenario: Default shed
 - **WHEN** the shed is 3101×2500 with beam spacing ≤ 1500, anchors ≤ 2500 and joists ≤ 600

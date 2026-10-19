@@ -41,7 +41,7 @@ test('high wall has three nogging rows, one on the sheet seam', () => {
 test('wall sheathing skips strips under 60 mm and needs 11 sheets', () => {
   const s = fresh(), r = build(s), rep = report(r, s);
   assert.ok(r.wallSheets.every((p) => Math.min(p.w, p.h) >= 60));
-  assert.equal(r.walls.front.gap, 20);
+  assert.equal(r.walls.front.gap, 25);
   assert.equal(rep.wall.count, 11);
 });
 

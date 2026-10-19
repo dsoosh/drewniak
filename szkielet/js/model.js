@@ -28,7 +28,7 @@ export function defaultState() {
     v: 1,
     dims: { L: 3101, W: 2500 },
     base: { maxSpan: 1500, anchorMax: 2500 },
-    floor: { joistMax: 600, sheetT: 25, splitJoists: false },
+    floor: { joistMax: 600, sheetT: 30, splitJoists: false },
     walls: { h0: 2350, studMax: 625, nogStep: 800, nogStagger: true, doubleFrom: 1200, sheatheIn: false, sheathT: 12, sheathBelow: 50, sheathe: true },
     roof: {
       type: 'mono', pitch: 13.9, highSide: 'back', ovhEave: 300, ovhGable: 300,
@@ -48,7 +48,7 @@ export function defaultState() {
       f45: { len: 6000, price: 69 },
       l50: { len: 5400, price: 22 },
       osbWall: { name: 'OSB/3 12 mm', w: 1250, h: 2500, price: '' },    // '' = price from OSB_PRICES
-      osbFloor: { name: 'OSB/3 25 mm pióro-wpust', w: 1250, h: 2500, price: '' },
+      osbFloor: { name: 'OSB/3 30 mm pióro-wpust', w: 1250, h: 2500, price: '' },
       cover: { price: 45 },
       anchor: { price: 135 },
     },
