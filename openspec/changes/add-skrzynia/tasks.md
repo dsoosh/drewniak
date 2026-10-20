@@ -1,9 +1,9 @@
 ## 1. Generator
 
 - [ ] 1.1 `skrzynia/js/boards.js`: rozkrój z desek użytkownika (osobno deski skrzyni i deski tac) (odcinki → pasy → elementy, liczenie cięć wzdłuż); testy w `tests/skrzynia.test.js` na zapas na rzaz, obcięcie końców i liczbę cięć wzdłuż przechodzą
-- [ ] 1.2 `skrzynia/js/build.js`: `defaultState()`, walidacja zakresów, geometria (wczepy proste w narożnikach skrzyni i tac, dno między ścianami, cokół, wieko z listwami i fartuchem, tace z prowadnicami, uchwyty); test domyślnej konfiguracji: brak NaN, brak ostrzeżeń, oczekiwana liczba elementów
+- [ ] 1.2 `skrzynia/js/build.js`: `defaultState()`, walidacja zakresów, geometria (wczepy proste we wszystkich narożnikach: korpus, cokół, fartuch, tace, dno między ścianami, cokół, wieko z listwami i fartuchem, tace z prowadnicami, uchwyty); test domyślnej konfiguracji: brak NaN, brak ostrzeżeń, oczekiwana liczba elementów
 - [ ] 1.3 Szukanie wymiarów: cele „pojemność” i „proporcje”, blokady, minimalna długość wewnętrzna, głębokość ≤ 0,75 długości, ściany klejone albo z jednej deski; testy scenariuszy ze speca (blokada wysokości, min. 700 mm, klej wyłączony, za małe deski z listą podpowiedzi) i test czasu < 1 s
-- [ ] 1.4 Okucia i łączniki (zawiasy 2/3, ogranicznik, gwoździe 2,5–3 × T, wkręty, klej), kontrole ugięć dna i wieka, masa, ostrzeżenie o niskim miejscu pod tacami, poziom trudności i plan pracy; testy na długie wieko (3 zawiasy), układ wczepów (400 mm, T = 20 → 15 wczepów po ok. 26,7 mm, przód i tył trzymają skrajne), niezależność od szwu klejenia, tace z desek 12 mm i bez desek na tace, wysokość uchwytów i ugięcia w granicach dla domyślnej skrzyni
+- [ ] 1.4 Okucia i łączniki (zawiasy 2/3, ogranicznik, gwoździe 2,5–3 × T, wkręty, klej), kontrole ugięć dna i wieka, masa, ostrzeżenie o niskim miejscu pod tacami, poziom trudności i plan pracy; testy na długie wieko (3 zawiasy), układ wczepów (400 mm, T = 20 → 15 wczepów po ok. 26,7 mm, przód i tył trzymają skrajne), niezależność od szwu klejenia, tace z desek 12 mm i bez desek na tace, 14 narożników na wczepy przy jednej tacy, wysokość uchwytów i ugięcia w granicach dla domyślnej skrzyni
 
 ## 2. Strona
 

@@ -61,6 +61,16 @@ at the top and the bottom edge. The joint SHALL be glued without nails.
 - **WHEN** a chest is found
 - **THEN** the cut list gives the front and back at the outer length and the ends at the outer depth, and the materials list no nails for the corners
 
+### Requirement: Every corner joint is a finger joint
+Every joint where two boards meet at a corner SHALL be a finger joint laid out by the same
+rule: carcass, skirt, lid apron and trays. Joints that are not corners SHALL use: bottom
+nailed through the walls, battens screwed through slotted holes, runners and handles glued
+and screwed long-grain, tray divider in a housing.
+
+#### Scenario: Joint list
+- **WHEN** a chest with one tray is found
+- **THEN** the cut list and work plan show finger joints at 14 corners (4 carcass, 4 skirt, 4 tray, 2 apron at the front of the lid) and no mitres, rebates or butt corners
+
 ### Requirement: Finger layout ignores the glue seam
 A wall glued from strips SHALL be glued and flattened before the fingers are marked, and
 the finger layout SHALL depend only on the wall height, not on where the glue seam falls.
@@ -80,13 +90,12 @@ The bottom SHALL NOT hang on nails driven from below.
 - **THEN** the bottom boards run front to back, each 380 mm long, nailed through front and back walls
 
 ### Requirement: Skirt around the base
-The chest SHALL have a skirt of 60–120 mm (default 80) nailed and glued around the bottom
-of the carcass, long-grain to long-grain, with the front and back skirt pieces running
-past the end skirt pieces so no mitres are needed.
+The chest SHALL have a skirt of 60–120 mm (default 80) glued and nailed around the bottom
+of the carcass, long-grain to long-grain, with its four corners finger-jointed.
 
 #### Scenario: Skirt in the cut list
 - **WHEN** a chest is found
-- **THEN** the cut list contains two long and two short skirt pieces and the views show the skirt overlapping the end pieces
+- **THEN** the cut list contains two long skirt pieces at the outer length plus 2T and two short ones at the outer depth plus 2T, and the views show 3 fingers at each skirt corner for an 80 mm skirt and T = 20
 
 ### Requirement: Lid with battens, apron and a stay
 The lid SHALL overhang the carcass by its own thickness on the front and the ends and

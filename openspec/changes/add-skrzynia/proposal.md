@@ -12,7 +12,8 @@ i jak ją połączyć, żeby nie rozpadła się przy pierwszym podniesieniu.
 - Wymiary skrzyni są dobierane z desek, które ma użytkownik (długość, szerokość, grubość,
   liczba). Długość, głębokość i wysokość można zablokować. Jest minimalna długość
   wewnętrzna, na przykład na piłę.
-- Konstrukcja: narożniki na wczepy proste (finger joint), tylko na klej. Dno leży między
+- Konstrukcja: wszystkie narożniki (korpus, cokół, fartuch wieka, tace) na wczepy
+  proste (finger joint), tylko na klej. Dno leży między
   ścianami i jest przybite przez ściany, więc gwoździe pracują na ścinanie. Do tego
   cokół, wieko z listwami poprzecznymi i fartuchem, ogranicznik otwarcia wieka,
   0–2 wyjmowane tace z cieńszych desek (domyślnie 12 mm) na prowadnicach i uchwyty

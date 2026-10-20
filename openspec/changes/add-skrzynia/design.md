@@ -30,7 +30,7 @@ w czoła desek dna, które pracują **na ścinanie** → ściany przód/tył →
 (klej na bocznych powierzchniach wczepów, long-grain do long-grain) → boki → klocki uchwytów (klej
 na długich włóknach, wkręty od środka na ścinanie) → dłonie.
 
-Przy stawianiu na podłodze: dno i ściany → cokół (klej long-grain i gwoździe) → podłoga.
+Przy stawianiu na podłodze: dno i ściany → cokół (klej long-grain i gwoździe, narożniki cokołu na wczepy) → podłoga.
 Cokół zasłania czoła dna i trzyma dolne krawędzie ścian.
 
 Żaden łącznik na tej drodze nie pracuje na wyrywanie. Dlatego odrzucamy dno przybite od
@@ -49,8 +49,11 @@ zewnętrzną, a boki głębokość zewnętrzną. Wnętrze to wymiar zewnętrzny 
 
 Ściana klejona z pasów: najpierw klejenie i wyrównanie, potem trasowanie wczepów. Układ
 zależy tylko od wysokości ściany, szew może wypaść w środku wczepu, bo jest już pełnym
-złączem wzdłuż włókien. Tace i fartuch wieka mają te same wczepy: fartuch 60 mm daje
-3 wczepy, taca 100 mm z desek 12 mm daje 7.
+złączem wzdłuż włókien. Każdy narożnik ma wczepy według tej samej reguły: korpus, cokół (80 mm → 3), fartuch
+wieka (60 mm → 3, dwa narożniki z przodu) i tace (100 mm z desek 12 mm → 7). Połączenia,
+które nie są narożnikami, zostają inne: dno przybite przez ściany, listwy wieka na
+wkrętach w otworach podłużnych, prowadnice i uchwyty klejone wzdłuż włókien i przykręcone,
+przegródka tacy we wpuście.
 
 Wczepy robi się piłą grzbietnicą i dłutem, z szablonu albo trasowane cyrklem. To
 trudniejsze niż wręby: poziom trudności 4, bo 40 i więcej wczepów musi pasować na sucho.
