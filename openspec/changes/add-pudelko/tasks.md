@@ -6,14 +6,14 @@
 
 ## 2. Strona
 
-- [ ] 2.1 `pudelko/index.html` + `pudelko/js/app.js`: formularz, wyniki, link i localStorage; w `node tools/serve.js` link odtwarza to samo pudełko, konsola czysta
-- [ ] 2.2 Rzuty przód/bok/góra z wymiarami i bananem, rozkrój, lista cięć, podgląd szablonu; zrzuty dla czterech zamknięć
-- [ ] 2.3 Model 3D z otwieraniem (zawiasy), zdejmowaniem (nasadzana, płaska) i wysuwaniem (wsuwana), z bananem; zrzut z Playwright
-- [ ] 2.4 PDF z rzutami, szablonem 1:1 (pasek kontrolny 100 mm sprawdzony w wygenerowanym pliku), rozkrojem, listą cięć i planem
+- [x] 2.1 `pudelko/index.html` + `pudelko/js/app.js`: formularz, wyniki, link i localStorage; w `node tools/serve.js` link odtwarza to samo pudełko, konsola czysta
+- [x] 2.2 Rzuty przód/bok/góra z wymiarami i bananem, rozkrój, lista cięć, podgląd szablonu; zrzuty dla czterech zamknięć
+- [x] 2.3 Model 3D z otwieraniem (zawiasy), zdejmowaniem (nasadzana, płaska) i wysuwaniem (wsuwana), z bananem; zrzut z Playwright
+- [x] 2.4 PDF z rzutami, szablonem 1:1 (pasek kontrolny 100 mm sprawdzony w wygenerowanym pliku), rozkrojem, listą cięć i planem
 
 ## 3. Strona główna i dokumentacja
 
-- [ ] 3.1 Karta pudełka w `index.html`, wpis w `README.md`; link działa lokalnie
+- [x] 3.1 Karta pudełka w `index.html`, wpis w `README.md`; link działa lokalnie
 
 ## 4. Integracja
 
