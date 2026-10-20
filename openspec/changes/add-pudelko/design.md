@@ -105,6 +105,11 @@ podgląd w zakładce.
   z linią cięcia wieka.
 - **Diagnoza:** najmniejsza potrzebna szerokość deski, osobne komunikaty dla pasa, zawiasów i
   zbyt małego pudełka.
+- **Druga runda:** pokrywka nasadzana przy wolnej wysokości z 5 wczepami dostaje notę (więcej
+  deski → 7 wczepów); domyślnie 3 deski, więc domyślna pokrywka ma 7 wczepów. Trzeci zawias
+  pośrodku, gdy L/8 przekracza zawias o > 15 mm albo wieko waży > 0,6 kg. Fazka chwytu rysowana
+  dwiema liniami, opisy szablonu nie kolidują z linią cięcia, bez mylącej podpowiedzi „za małe”
+  przy zbyt wąskiej desce.
 - **Nie przyjęte:** zestruganie grubych płyt do T/2 + 4 przy T = 20 (ciesielski zostawił do
   decyzji formy; płyta tej samej grubości upraszcza rozkrój i ćwiczenie).
 

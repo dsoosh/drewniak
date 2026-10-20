@@ -42,7 +42,13 @@ export function viewSVG(res, view, P) {
   const W = u1 - u0 + 2 * pad + fs * 14 + 220, H = v1 - v0 + 2 * pad + (isTop ? 70 : 0);
   let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${f(u0 - pad)} ${f(v0 - pad)} ${f(W)} ${f(H)}" font-family="${P.font}"><rect x="${f(u0 - pad)}" y="${f(v0 - pad)}" width="${f(W)}" height="${f(H)}" fill="${P.bg}"/>`;
   if (!isTop) s += `<line x1="${f(u0 - pad)}" y1="0" x2="${f(u1 + fs * 14 + 220 + pad)}" y2="0" stroke="${P.muted}" stroke-width="${f(fs / 10)}"/>`;
-  for (const it of items) s += `<rect x="${f(it.u0)}" y="${f(it.v0)}" width="${f(it.u1 - it.u0)}" height="${f(it.v1 - it.v0)}" fill="${COLOR(it.b, P)}" stroke="${P.ink}" stroke-opacity="0.45" stroke-width="${f(fs / 18)}"/>`;
+  for (const it of items) {
+    if (it.b.kind === 'grip') {   // a chamfer: two lines, no fill
+      if (view === 'front') for (const v of [it.v0, it.v1]) s += `<line x1="${f(it.u0)}" y1="${f(v)}" x2="${f(it.u1)}" y2="${f(v)}" stroke="${P.ink}" stroke-opacity="0.6" stroke-width="${f(fs / 18)}"/>`;
+      continue;
+    }
+    s += `<rect x="${f(it.u0)}" y="${f(it.v0)}" width="${f(it.u1 - it.u0)}" height="${f(it.v1 - it.v0)}" fill="${COLOR(it.b, P)}" stroke="${P.ink}" stroke-opacity="0.45" stroke-width="${f(fs / 18)}"/>`;
+  }
   const totH = d.total.H, oL = d.total.L, oD = d.total.D, x0 = d.lid === 'flat' ? -d.flat.over : 0;
   if (view === 'front') {
     s += dimH(x0, x0 + oL, -totH - fs * 2.5, fmt(oL), P, fs);
@@ -80,11 +86,12 @@ export function templateSVG(t, T, P, holder = 'front') {
       if (waste) s += `<path d="M ${x0} ${f(-z - b)} L ${f(x0 + depth)} ${f(-z)} M ${f(x0 + depth)} ${f(-z - b)} L ${x0} ${f(-z)}" stroke="#000" stroke-width="0.25"/>`;
       s += `<line x1="${f(x0 + depth)}" y1="${f(-z - b)}" x2="${f(x0 + 60)}" y2="${f(-z - b)}" stroke="#000" stroke-width="0.15" stroke-dasharray="1 1"/>`;
     }
-    s += `<text x="${f(depth + 3)}" y="${f(-z - b / 2 + 1.2)}" font-size="3.2" fill="#000">${fmt(b, 1)}</text>`;
+    const mid = -z - b / 2 + 1.2, clash = t.cut && Math.abs(-t.cut - (mid - 1.2)) < 3;
+    s += `<text x="${f(depth + 3)}" y="${f(clash ? -z - b + 3.4 : mid)}" font-size="3.2" fill="#000">${fmt(b, 1)}</text>`;
     z += b;
   });
   for (const [label, x0] of cols) s += `<text x="${x0}" y="${f(-h - 4)}" font-size="3.5" fill="#000">${label}</text><line x1="${f(x0 + depth)}" y1="0" x2="${f(x0 + depth)}" y2="${f(-h)}" stroke="#000" stroke-width="0.35"/>`;
-  if (t.cut) for (const [, x0] of cols) s += `<line x1="${x0 - 4}" y1="${f(-t.cut)}" x2="${f(x0 + depth + 4)}" y2="${f(-t.cut)}" stroke="#b4442a" stroke-width="0.35" stroke-dasharray="2 1"/>`;
+  if (t.cut) for (const [, x0] of cols) s += `<line x1="${x0 - 4}" y1="${f(-t.cut)}" x2="${f(x0 + depth + 2)}" y2="${f(-t.cut)}" stroke="#b4442a" stroke-width="0.35" stroke-dasharray="2 1"/>`;
   if (t.cut) s += `<text x="${f(80 + depth + 6)}" y="${f(-t.cut + 1.2)}" font-size="3.2" fill="#b4442a">cięcie ${fmt(t.cut, 1)} od dołu</text>`;
   s += `<text x="0" y="6" font-size="3" fill="#000">głębokość ${fmt(depth, 1)} mm (T + 0,5)</text>`;
   s += `<rect x="0" y="12" width="100" height="4" fill="none" stroke="#000" stroke-width="0.3"/><rect x="0" y="12" width="50" height="4" fill="#000"/><text x="102" y="15.5" font-size="3" fill="#000">100 mm</text>`;

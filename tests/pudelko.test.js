@@ -116,7 +116,7 @@ test('hinged lid: n ≥ 7, marked 102, cut mid fifth band at 65.3 raw, 35.7 / 64
   near(h.grip.depth, 4); near(h.grip.len, 80);
   assert.ok(r.hardware.some((x) => x.item.includes('ogranicznikiem 95°')));
   const plan = r.plan.find(([t]) => t === 'Odcinanie wieka')[1];
-  for (const k of ['zamknięte pudełko', 'dookoła', '65,3 mm od dołu surowego', 'kliny', 'od narożnika do środka', 'Wpuść zawiasy']) assert.ok(plan.includes(k), k);
+  for (const k of ['zamknięte pudełko', 'dookoła', '65,3 mm od dołu surowego', 'kliny', 'od narożnika do środka', 'Wpuść 2 zawiasy']) assert.ok(plan.includes(k), k);
   assert.ok(r.plan.find(([t]) => t === 'Rowki')[1].includes('od górnej krawędzi'));
   const low = build(st((s) => { s.lid = 'hinged'; }));
   assert.equal(low.ok, false);
@@ -164,6 +164,15 @@ test('tools and difficulty', () => {
   const thin = build(st((s) => { s.boards.T = 8; s.lock.H = 60; s.boards.W = 150; }));
   assert.ok(thin.ok, JSON.stringify(thin.tips));
   assert.equal(thin.difficulty.level, Math.min(5, r.difficulty.level + 1));
+});
+
+test('long lid gets a third hinge', () => {
+  const r = build(st((s) => { s.lid = 'hinged'; s.lock = { L: 500, D: 300, H: 120 }; s.boards = { L: 3000, W: 200, T: 12, N: 6 }; }));
+  assert.ok(r.ok, JSON.stringify(r.tips));
+  const h = r.hardware.find((x) => x.item.startsWith('Zawias'));
+  assert.equal(h.qty, 3); assert.equal(r.hardware.find((x) => x.item.startsWith('Wkręt')).qty, 12);
+  assert.equal(r.geometry.boxes.filter((b) => b.kind === 'hinge').length, 3);
+  assert.equal(build(st((s) => { s.lid = 'hinged'; s.lock.H = 100; })).d.hinged.count, 2);
 });
 
 test('templates: widened band and cut line for the hinged lid', () => {

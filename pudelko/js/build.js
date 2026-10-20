@@ -23,7 +23,7 @@ export const LIMITS = {
 
 export function defaultState() {
   return {
-    boards: { L: 1200, W: 120, T: 12, N: 2 },
+    boards: { L: 1200, W: 120, T: 12, N: 3 },
     kerf: 2, trim: 10, sawKerf: 1,
     wood: 'soft',
     goal: 'proportions',
@@ -137,7 +137,10 @@ export function design(s, Lo, Do, H) {
     if (2 * (from + hl) > Lo) return { reject: 'small' };
     const tg = top(H);
     if (!tg) return { reject: 'band' };
-    out.hinged = { k, lidH, bodyH, cut: bodyH, band, bandW, rawCut: band * w + bandW / 2,
+    // lid part: four walls and the panel; a third hinge when the lid is long or heavy
+    const lidKg = (2 * (Lo + Do) * lidH * T + inL * inD * T) * 1e-9 * DENSITY;
+    const count = Lo / 8 - hl > 15 || lidKg > 0.6 ? 3 : 2;
+    out.hinged = { k, lidH, bodyH, cut: bodyH, band, bandW, rawCut: band * w + bandW / 2, lidKg, count,
       rawGroove: { fromTop0: tg.recess, fromTop1: tg.recess + g, z0: markH - tg.recess - g, z1: markH - tg.recess },
       panel: { ...tg, len: bottom.len, width: fit.width }, hinge: { len: hl, leaf, from, screw: scr, wantLen: Lo / 8 }, grip: { depth: T / 3, len: Lo / 3 } };
     out.total = { L: Lo, D: Do, H };
@@ -270,7 +273,7 @@ function diagnose(s, found) {
   if (rj.band) tips.push(`Pas dolnego wczepu jest za wąski na rowek dna (trzeba 3 mm drewna do linii wczepu). Wyższe ścianki albo grubsza deska.`);
   if (rj.thin) tips.push(`Deska ${T} mm jest za cienka na rowek przy tej szerokości dna — dno wypadłoby z rowka przy pracy drewna. Węższe pudełko albo grubsza deska.`);
   if (rj.thinHinge) tips.push(`Przy desce ${T} mm nie ma zawiasu o skrzydełku ≤ ${T - 2} mm.`);
-  if (rj.small) tips.push('Pudełko jest za małe na to zamknięcie (zawiasy albo wnętrze).');
+  if (rj.small && !rj.wallWidth) tips.push('Pudełko jest za małe na to zamknięcie (zawiasy albo wnętrze).');
   if (found.lastFail === 'area' || (!tips.length && !found.empty)) {
     const est = Math.ceil(((s.lock.L || 200) * 2 + (s.lock.D || 120) * 2) * (s.lock.H || 80) * 2.6 / (W * (s.boards.L - 2 * s.trim)));
     tips.push(`Za mało deski: potrzeba około ${Math.max(est, s.boards.N + 1)} desek ${s.boards.L}×${W} mm albo mniejszego pudełka.`);
@@ -310,6 +313,7 @@ export function build(state) {
   if (s.lock.L && d.Lo < 12 * T) warnings.push(`Pudełko ${d.Lo} mm z deski ${T} mm wygląda ciężko (długość poniżej 12 × grubość).`);
   const notes = [];
   if (s.goal === 'proportions' && found.dev > 0.05) notes.push(`Proporcje obrysu poza zakresem: głębokość ${(d.total.D / d.total.L).toFixed(2).replace('.', ',')} zamiast 0,6, wysokość ${(d.total.H / d.total.L).toFixed(2).replace('.', ',')} zamiast 0,4 długości.`);
+  if (d.lid === 'lift' && !s.lock.H && d.n === 5) notes.push('Z tej ilości deski wychodzi pokrywka na 5 wczepach — obrzeże zajmuje 3/8 wysokości. Więcej deski dałoby 7 wczepów i lżejsze obrzeże.');
   if (!lay.oneStrip) notes.push('Ścianki nie mieszczą się na jednym pasie deski — słoje nie obiegną narożników.');
   const fingers = 4 * d.n + (d.lid === 'lift' ? 4 * 3 : 0);
   const vol = lay.parts.reduce((a, p) => a + p.qty * p.l * p.w * p.t, 0);
@@ -330,8 +334,9 @@ function hardware(s, d) {
   const out = [{ item: 'Klej do drewna o czasie otwartym ≥ 15 min', size: '', qty: 1, note: 'tylko wczepy i listewki; dna i płyt nie klej' }];
   if (d.lid === 'hinged') {
     const h = d.hinged.hinge;
-    out.unshift({ item: 'Zawias wpuszczany z ogranicznikiem 95°, mosiądz', size: `${h.len} mm, skrzydełko ok. ${fmt1(h.leaf)} mm`, qty: 2, note: `zewnętrzny koniec ${fmt1(h.from)} mm od końca pudełka${h.len < h.wantLen - 5 ? '; krótszy niż L/8, bo dłuższy ma za szerokie skrzydełko' : ''}` },
-      { item: 'Wkręt mosiężny do zawiasów', size: `${String(h.screw[0]).replace('.', ',')}×${h.screw[1]}`, qty: 8, note: 'nawiercić; nacięcia łbów wzdłuż osi zawiasu' });
+    const cnt = d.hinged.count;
+    out.unshift({ item: 'Zawias wpuszczany z ogranicznikiem 95°, mosiądz', size: `${h.len} mm, skrzydełko ok. ${fmt1(h.leaf)} mm`, qty: cnt, note: `zewnętrzne ${fmt1(h.from)} mm od końców${cnt === 3 ? `, trzeci pośrodku (wieko ok. ${fmt1(d.hinged.lidKg)} kg)` : ''}${h.len < h.wantLen - 5 ? '; krótszy niż L/8, bo dłuższy ma za szerokie skrzydełko' : ''}` },
+      { item: 'Wkręt mosiężny do zawiasów', size: `${String(h.screw[0]).replace('.', ',')}×${h.screw[1]}`, qty: 4 * cnt, note: 'nawiercić; nacięcia łbów wzdłuż osi zawiasu' });
   }
   out.push({ item: 'Olej albo olejowosk', size: 'zewnątrz', qty: 1, note: 'płyty wykończ przed montażem' }, { item: 'Szelak albo wosk', size: 'środek', qty: 1, note: 'olej w zamkniętym pudełku pachnie' });
   return out;
@@ -369,7 +374,7 @@ function plan(s, d, res) {
   steps.push(['Klejenie', 'Montaż na sucho, klej tylko na wczepach, dno pływa w rowku bez kleju. Sprawdź przekątne, po wyschnięciu zestrugaj wczepy na równo.']);
   if (d.lid === 'lift') steps.push(['Pokrywka', `Obrzeże ${f(d.rim.h)} mm z 3 wczepami, skrajne trzymają boki. Płyta cofnięta o ${f(d.rim.panel.recess)} mm pod krawędź. Listewki ${f(d.lip.t)} × ${f(d.lip.h)} mm wklej od środka na górnym pasie, wystają 6 mm; na wystającej części wręb 0,5 mm i fazka 1 mm.`]);
   if (d.lid === 'slide') steps.push(['Przykrywka wsuwana', `Płyta ${f(d.slide.len)} × ${f(d.slide.width)} mm, słoje wzdłuż, wrąb od góry, pióro przy spodzie, wierzch równo ze ściankami. Niski bok ${f(d.slide.low)} mm. Wnęka na palec ${d.slide.recess.w} × ${f(d.slide.recess.len)} mm, ${f(d.slide.recess.depth)} mm głęboka, ${f(d.slide.recess.from)} mm od końca, żłobikiem, z dnem spadającym ku końcowi.`]);
-  if (d.lid === 'hinged') steps.push(['Odcinanie wieka', `Sklej zamknięte pudełko (${f(d.markH)} mm). Trasuj linię cięcia dookoła w środku pasa ${d.hinged.band + 1}, ${f(d.hinged.rawCut)} mm od dołu surowego pudełka (korpus po struganiu ${f(d.hinged.bodyH)} mm, wieko ${f(d.hinged.lidH)} mm). Tnij od narożników, przy trzecim boku włóż kliny w rzaz. Struguj obie krawędzie od narożnika do środka, żeby nie wyrwać czół wczepów. Wpuść zawiasy ${d.hinged.hinge.len} mm z ogranicznikiem 95°, ${f(d.hinged.hinge.from)} mm od końców. Fazka chwytu 45° ${f(d.hinged.grip.depth)} mm na środkowej ⅓ przodu wieka.`]);
+  if (d.lid === 'hinged') steps.push(['Odcinanie wieka', `Sklej zamknięte pudełko (${f(d.markH)} mm). Trasuj linię cięcia dookoła w środku pasa ${d.hinged.band + 1}, ${f(d.hinged.rawCut)} mm od dołu surowego pudełka (korpus po struganiu ${f(d.hinged.bodyH)} mm, wieko ${f(d.hinged.lidH)} mm). Tnij od narożników, przy trzecim boku włóż kliny w rzaz. Struguj obie krawędzie od narożnika do środka, żeby nie wyrwać czół wczepów. Wpuść ${d.hinged.count} zawiasy ${d.hinged.hinge.len} mm z ogranicznikiem 95°${d.hinged.count === 3 ? ' (trzeci pośrodku)' : ''}, ${f(d.hinged.hinge.from)} mm od końców. Fazka chwytu 45° ${f(d.hinged.grip.depth)} mm na środkowej ⅓ przodu wieka.`]);
   if (d.lid === 'flat') steps.push(['Przykrywka płaska', `Płyta ${f(d.flat.len)} × ${f(d.flat.width)} mm (wysięg ${d.flat.over} mm). Listewki ${T} × ${f(d.flat.batten.w)} × ${f(d.flat.batten.len)} mm w poprzek słojów, zewnętrzne lica 1 mm od boków od środka, klej tylko w środkowej ⅓.`]);
   steps.push(['Krawędzie i wykończenie', `Jedna fazka ${T <= 12 ? 1 : 1.5} mm na krawędziach, 0,5 mm wzdłuż styku zamknięcia, bez fazek na wylotach rowków. Na zewnątrz olej albo olejowosk, w środku szelak albo wosk.`]);
   return steps;
@@ -440,7 +445,7 @@ export function geometry(s, d) {
     // grip chamfer and mortised hinges stay inside the outline
     box(Lo / 3, (2 * Lo) / 3, 0, 0.6, cut + 0.5, cut + 0.5 + d.hinged.grip.depth, 'grip', { lid: true });
     const h = d.hinged.hinge;
-    for (const x of [h.from + h.len / 2, Lo - h.from - h.len / 2]) box(x - h.len / 2, x + h.len / 2, Do - 1.2, Do, cut - h.leaf, cut + h.leaf, 'hinge', { hingeX: x });
+    for (const x of [h.from + h.len / 2, ...(d.hinged.count === 3 ? [Lo / 2] : []), Lo - h.from - h.len / 2]) box(x - h.len / 2, x + h.len / 2, Do - 1.2, Do, cut - h.leaf, cut + h.leaf, 'hinge', { hingeX: x });
     lidMotion = { kind: 'hinge', y: Do, z: cut, deg: 95 };
   } else {
     frame(0, Lo, 0, Do, 0, H, d.n);

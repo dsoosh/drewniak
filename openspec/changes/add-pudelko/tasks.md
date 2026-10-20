@@ -18,7 +18,7 @@
 ## 4. Integracja
 
 - [x] 4.1 Wszystkie testy w `tests/` przechodzą, `openspec validate --all --strict` przechodzi
-- [ ] 4.2 Recenzja `mistrz-ciesielski` i `mistrz-rzemieslnik` na wygenerowanych pudełkach (cztery zamknięcia, deski 8 i 20 mm); wady poprawione albo przyjęte w `design.md`
+- [x] 4.2 Recenzja `mistrz-ciesielski` i `mistrz-rzemieslnik` na wygenerowanych pudełkach (cztery zamknięcia, deski 8 i 20 mm); wady poprawione albo przyjęte w `design.md`
 
 ## Workflow follow-up
 

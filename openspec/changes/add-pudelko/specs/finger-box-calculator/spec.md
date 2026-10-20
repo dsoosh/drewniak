@@ -7,7 +7,7 @@ dobieranego z wymiarów albo z deski, którą użytkownik ma, i robionego narzę
 
 ### Requirement: Dimensions are given or chosen from the boards
 The calculator SHALL take board length (200–3000), width (40–300), thickness after planing
-(8–20, default 12), count (1–6), kerf (0–4), end trim (0–50) and wood (soft or hard). Outer
+(8–20, default 12), count (1–6, default 3), kerf (0–4), end trim (0–50) and wood (soft or hard). Outer
 length (100–500), depth (60–350) and wall height (40–200) MAY each be locked; the others SHALL
 be searched on a 10 mm grid among boxes whose parts can be cut from the boards.
 
@@ -135,7 +135,8 @@ the choice.
 ### Requirement: Lift-off lid
 The lift-off lid SHALL be a rim of the box's outer size, 3w high with 3 fingers of w, the ends
 holding its outer fingers so the rhythm runs on across the joint, with a top panel in a groove of
-its top band (through in the front and back, stopped in the ends). It SHALL need n ≥ 5 in the body.
+its top band (through in the front and back, stopped in the ends). It SHALL need n ≥ 5 in the body;
+with a free height the page SHALL say when the boards allow only 5 fingers (rim 3/8 of the height).
 
 #### Scenario: Lift-off lid on the practice box
 - **WHEN** w is 18 mm, T is 12 mm and the body has 5 fingers
@@ -144,6 +145,10 @@ its top band (through in the front and back, stopped in the ends). It SHALL need
 #### Scenario: Body too low
 - **WHEN** the body has only 3 fingers
 - **THEN** the page says the box is too low for this lid and gives the nearest height with 5 fingers
+
+#### Scenario: Boards allow only 5 fingers
+- **WHEN** the height is free and only a box with 5 fingers fits the boards
+- **THEN** the page notes that more board would give 7 fingers and a lighter rim
 
 ### Requirement: Lip strips of the lift-off lid
 The lid SHALL be located by lip strips T/2 thick and w + 6 mm high glued inside the walls on
@@ -204,6 +209,14 @@ most the part height − 5 mm long.
 #### Scenario: Thin board
 - **WHEN** T is 8 mm and the box is 240 mm long
 - **THEN** the hinges are 20 mm long
+
+### Requirement: Third hinge on a long or heavy lid
+A third hinge of the same size SHALL be added in the middle when L/8 exceeds the chosen hinge
+length by more than 15 mm or the lid part weighs more than 0.6 kg at 500 kg/m³.
+
+#### Scenario: Long lid
+- **WHEN** the box is 500 × 300 × 120 mm with T = 12 mm
+- **THEN** the materials list three 30 mm hinges and 12 screws, the third in the middle
 
 ### Requirement: Grip of the hinged lid
 The hinged lid SHALL get a 45° chamfer T/3 deep on the lower front edge over the middle third of
