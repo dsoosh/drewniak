@@ -94,11 +94,17 @@ boards SHALL be shiplapped with 1–2 mm play in each lap, and the option SHALL 
 ### Requirement: Stacked boards are tied together
 With edge gluing off, each end wall SHALL get a vertical cleat inside over the full
 height, with one screw on the axis of every board, so every ring of boards is tied to the
-handles. A ring without a connection to the handles SHALL NOT be proposed.
+handles. A ring without a connection to the handles SHALL NOT be proposed. Trays SHALL start
+beyond these cleats, the minimum inner length SHALL be measured between them, and the handle
+screws SHALL be set outside the cleat.
 
 #### Scenario: Three rings
 - **WHEN** edge gluing is off and the walls are 600 mm high from three 200 mm boards
 - **THEN** the cut list contains two vertical cleats and the materials list three screws per cleat, one on each board axis
+
+#### Scenario: Tray clear of the cleats
+- **WHEN** edge gluing is off and the chest has one or two trays
+- **THEN** no tray overlaps a vertical cleat and each tray is half the length between the cleats
 
 ### Requirement: Corners are finger-jointed and glued
 The four vertical corners SHALL be finger joints as deep as the board thickness plus

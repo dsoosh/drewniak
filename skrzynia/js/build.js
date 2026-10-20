@@ -211,7 +211,9 @@ export function design(s, Lo, Do, H) {
   const hLen = Math.min(240, Math.max(140, Math.round(0.5 * Do / 10) * 10));
   const layers = Math.ceil(30 / T);
   if (hBot <= skirtTop) return null;
-  const effL = s.handles === 'bought' ? inL - 2 * (T + NUT) : inL;  // between the cap nuts
+  // trays run between the cap nuts of bought handles, or between the vertical cleats of stacked walls
+  const VCLEAT = 20, inset = Math.max(s.handles === 'bought' ? T + NUT : 0, stacked ? VCLEAT : 0);
+  const effL = inL - 2 * inset;
   if (effL < s.minInner - 1e-9) return null;
 
   // trays, top down
@@ -242,7 +244,7 @@ export function design(s, Lo, Do, H) {
     lid: { depth: LD, len: LL, ovF, ovE, glued: !stacked },
     batten: { len: battenLen, cut: Math.round(battenLen), clear: (inD - battenLen) / 2 },
     handle: { top: hTop, bot: hBot, h: hH, len: hLen, layers, proj: layers * T, undercut: Math.min(hH / 2, layers * T - 10) },
-    trayX: T + (s.handles === 'bought' ? T + NUT : 0) + 2,
+    trayX: T + inset + 2,
     trays, trayFl, tT, p1,
     bottom: bb, bottomTop, free,
     total: { L: LL, D: Do + 2 * T, H: H + T + SKIRT_DROP, Lh: Math.max(LL, Lo + 2 * layers * T) },
@@ -618,7 +620,7 @@ function fasteners(s, d, cleatScrews) {
   if (d.stacked) through('Listwa pionowa → bok', 20, 2 * d.wall.strips.length, 'jeden wkręt w oś każdej deski boku');
   for (const tr of d.trays) through('Prowadnica tacy → przód / tył', tr.proj, 2 * (Math.ceil(d.inL / 150) + 1), 'od środka, plus klej');
   if (d.trays.length > 1) through('Listwa prowadząca → przód / tył', d.p1, 2 * (Math.ceil(d.inL / 150) + 1), 'plus klej');
-  if (s.handles === 'wood') screw('Uchwyt → bok', T + d.handle.layers * T, 8, 'od środka; plus klej na długich włóknach');
+  if (s.handles === 'wood') screw('Uchwyt → bok', T + d.handle.layers * T, 8, `od środka; plus klej na długich włóknach${d.stacked ? '; rozstaw wkręty poza listwą pionową' : ''}`);
   // lid
   const bScrews = d.lid.glued ? Math.ceil(d.batten.cut / 150) + 1 : shiplapBoards(d.lidPanel.depth, s.boards.W).length;
   screw('Listwa wieka → wieko', 2 * T, 2 * bScrews, d.lid.glued ? `stały przy przodzie, dalej otwory podłużne do tyłu (1% odległości od stałego + 2 mm, najdalszy ${fmt1(0.01 * d.batten.cut + 2)} mm)` : 'jeden stały wkręt w osi każdej deski');

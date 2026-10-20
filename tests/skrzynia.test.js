@@ -366,6 +366,19 @@ test('bottom stress is checked; a fallback chest exceeds the least and says it c
   if (r.ok) for (const c of r.checks.filter((x) => !x.ok && x.unit === 'MPa')) assert.ok(c.hint.includes('pęknąć'));
 });
 
+test('trays overlap nothing: stacked walls, bought handles, two trays', () => {
+  const overlap = (a, b) => a.x0 < b.x1 - 1e-6 && b.x0 < a.x1 - 1e-6 && a.y0 < b.y1 - 1e-6 && b.y0 < a.y1 - 1e-6 && a.z0 < b.z1 - 1e-6 && b.z0 < a.z1 - 1e-6;
+  for (const fn of [(x) => { x.edgeGlue = false; }, (x) => { x.edgeGlue = false; x.trays = 2; x.lock.H = 600; }, (x) => { x.handles = 'bought'; }, (x) => { x.trays = 2; x.lock.H = 480; }]) {
+    const r = build(st(fn));
+    assert.ok(r.ok);
+    const B = r.geometry.boxes.filter((b) => b.kind !== 'hole' && !b.lid);
+    const trays = B.filter((b) => b.tray !== undefined), rest = B.filter((b) => b.tray === undefined);
+    for (const t of trays) for (const o of rest) assert.ok(!overlap(t, o), `${t.kind} × ${o.kind}`);
+    if (!r.d.stacked) continue;
+    near(r.d.trays[0].len, Math.floor((r.d.inL - 40) / 2), 1e-9);
+  }
+});
+
 test('planing is not a rip', () => {
   const ps = parts(st(), design(st(), 850, 460, 530));
   assert.ok(ps.filter((p) => p.w >= 197).every((p) => !p.rip));

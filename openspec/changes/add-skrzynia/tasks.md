@@ -27,7 +27,7 @@
 ## 5. Integracja
 
 - [ ] 5.1 `node tests/build.test.js` i `node tests/skrzynia.test.js` przechodzą, `openspec validate --all --strict` przechodzi
-- [ ] 5.2 Recenzja `mistrz-ciesielski` i `mistrz-rzemieslnik` na wygenerowanej skrzyni (domyślna, najmniejsza, największa, 2 tace, bez kleju); wady poprawione albo przyjęte w `design.md`
+- [x] 5.2 Recenzja `mistrz-ciesielski` i `mistrz-rzemieslnik` na wygenerowanej skrzyni (domyślna, najmniejsza, największa, 2 tace, bez kleju); wady poprawione albo przyjęte w `design.md`
 
 ## Workflow follow-up
 
