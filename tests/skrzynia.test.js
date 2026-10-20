@@ -116,7 +116,7 @@ test('bottom: three 200 boards and 148, gaps 2, nails in the middle third', () =
   const b = bottomBoards(760, 200);
   assert.deepEqual(b.widths, [200, 200, 200, 148]); assert.equal(b.gap, 2);
   const { s, d } = D800();
-  assert.ok(parts(s, d).filter((p) => p.key.startsWith('bottom')).every((p) => p.l === 400));
+  assert.ok(parts(s, d).filter((p) => p.key.startsWith('bottom')).every((p) => p.l === 398));
   const f = build(s).fasteners.find((x) => x.joint.startsWith('Dno'));
   assert.ok(f.note.includes('środkowej'));
 });
@@ -125,7 +125,7 @@ test('fasteners never come through', () => {
   const r = build(st());
   const skirt = r.fasteners.find((f) => f.joint.startsWith('Cokół'));
   assert.ok(skirt.len <= 37, `${skirt.len}`);
-  assert.ok(skirt.note.includes(`${(r.d.skirt.h - 4) / 2}`.slice(0, 2)));
+  assert.ok(skirt.note.includes(`${Math.floor(r.d.skirt.h / 2 - 4)}`), skirt.note);
   for (const f of r.fasteners) assert.ok(f.len > 0, f.joint);
 });
 
@@ -136,7 +136,7 @@ test('lid: overhang, battens, side aprons not glued', () => {
   const r = build(s);
   const lidStep = r.plan.find(([t]) => t === 'Wieko')[1];
   assert.ok(lidStep.includes('boki bez kleju') && lidStep.includes('otworach podłużnych'));
-  assert.ok(r.notes.some((n) => n.includes('100 mm')));
+  assert.ok(r.notes.some((n) => /za skrzynią potrzeba około \d+0 mm/.test(n)));
 });
 
 test('long lid gets three hinges', () => {
@@ -171,7 +171,7 @@ test('two trays are stepped and guided', () => {
 test('tray hand hole on the grid, cut-out on a low tray', () => {
   const { s, d } = D800();
   const h = trayHole(s, d);
-  assert.equal(h.kind, 'hole'); near(h.h, 31.43, 0.01); near(h.top, 31.43, 0.01); assert.equal(h.len, 90);
+  assert.equal(h.kind, 'hole'); near(h.h, 31.43, 0.01); near(h.top, 31.43, 0.01); assert.equal(h.len, 100);
   const s2 = st((x) => { x.trayH = 70; });
   assert.equal(trayHole(s2, design(s2, 800, 440, 400)).kind, 'cutout');
 });
@@ -202,7 +202,7 @@ test('bought handles: bolts, cap nuts, backing blocks, inner length between bloc
   assert.ok(r.ok);
   for (const k of ['Śruba M6', 'Podkładka', 'Nakrętka kołpakowa']) assert.ok(r.hardware.some((h) => h.item.startsWith(k)), k);
   assert.ok(r.parts.some((p) => p.key === 'backing' && p.qty === 2));
-  assert.ok(r.d.effL === r.d.inL - 40 && r.d.effL >= 600);
+  assert.ok(r.d.effL === r.d.inL - 2 * (20 + 10) && r.d.effL >= 600);
 });
 
 // ---- checks
@@ -272,6 +272,105 @@ test('geometry is finite and has the banana-free box list', () => {
 });
 
 test('limits are sane', () => { assert.deepEqual(LIMITS.H, [250, 700]); });
+
+// ---- fixes after the masters' review of the implementation
+
+test('stacked boards are tied by vertical cleats, one screw per board', () => {
+  const s = st((x) => { x.edgeGlue = false; });
+  const d = design(s, 930, 450, 600);
+  assert.equal(d.wall.strips.length, 3);
+  assert.ok(parts(s, d).some((p) => p.key === 'vcleat' && p.qty === 2));
+  const r = build(st((x) => { x.edgeGlue = false; x.lock.H = 600; }));
+  const f = r.fasteners.find((x) => x.joint.startsWith('Listwa pionowa'));
+  assert.equal(f.qty, 2 * 3);
+});
+
+test('lid panel sits inside the apron, tops flush', () => {
+  const s = st(), d = design(s, 850, 460, 530);
+  near(d.lidPanel.len, 856, 0.01); near(d.lidPanel.depth, 467.9, 0.05);
+  assert.ok(parts(s, d).filter((p) => p.key.startsWith('lid')).every((p) => p.l === 856));
+  const r = build(st((x) => { x.lock.L = 850; x.lock.D = 460; x.lock.H = 530; }));
+  const lid = r.geometry.boxes.find((b) => b.kind === 'lid'), apron = r.geometry.boxes.find((b) => b.kind === 'apron' && b.face === 'front');
+  near(lid.z1, apron.z1, 1e-9); assert.ok(lid.y0 >= apron.y1 - 1e-9);
+});
+
+test('skirt follows the carcass finger rhythm', () => {
+  const s = st(), d = design(s, 850, 460, 530);
+  near(d.skirt.h, 87.7, 0.05); assert.equal(d.skirt.n, 3); near(d.skirt.h / 3, 29.2, 0.05);
+});
+
+test('seams near a finger line are rejected', () => {
+  const w = 30;
+  assert.equal(seamOk(10 * w + 0.27 * w, w, 60), false);
+  assert.equal(seamOk(10 * w + 0.5 * w, w, 60), true);
+  assert.equal(seamOk(10 * w + 0.3, w, 60), true);
+});
+
+test('handle height 45–70 and an undercut that fits', () => {
+  for (const T of [12, 16, 20, 24, 28, 32]) {
+    const s = st((x) => { x.boards.T = T; });
+    const d = design(s, 800, 440, 450);
+    if (!d) continue;
+    assert.ok(d.handle.h >= 45 - 1e-9 && d.handle.h <= 70 + 1e-9, `T ${T}: ${d.handle.h}`);
+    assert.ok(d.handle.undercut <= d.handle.proj - 10 + 1e-9, `T ${T}`);
+    assert.ok(onGrid(d.handle.top, d.w) && onGrid(d.handle.bot, d.w));
+  }
+});
+
+test('bought handles: trays start beyond the cap nuts, blocks drawn', () => {
+  const r = build(st((x) => { x.handles = 'bought'; }));
+  assert.ok(r.d.trayX >= 2 * 20 + 10);
+  assert.ok(r.geometry.boxes.some((b) => b.kind === 'cleat' && b.side));
+  assert.ok(r.hardware.find((h) => h.item.startsWith('Śruba')).size === 'M6×65');
+});
+
+test('thin boards: every fastener has a length and stays inside', () => {
+  const r = build(st((x) => { x.boards.T = 12; x.boards.N = 12; }));
+  assert.ok(r.ok);
+  for (const f of r.fasteners) assert.ok(f.len > 0, f.joint);
+  const hinge = r.hardware.find((h) => h.item.startsWith('Wkręt do zawiasów'));
+  assert.ok(/×(8|9)$/.test(hinge.size), hinge.size);
+  assert.ok(r.fasteners.find((f) => f.joint.startsWith('Listwa nośna')).note.includes('w ścianę 9 mm'));
+  assert.ok(r.fasteners.find((f) => f.joint.startsWith('Fartuch boczny')).size === '3,5×50');
+});
+
+test('assembly play and the skirt frame', () => {
+  const { s, d } = D800();
+  const ps = parts(s, d);
+  assert.equal(ps.find((p) => p.key === 'cleat').l, 758);
+  assert.equal(ps.find((p) => p.key === 'runner1').l, 758);
+  assert.equal(ps.find((p) => p.key === 'skirtF').l, 841.5);
+});
+
+test('bottom remainder split keeps 3 mm at the ends', () => {
+  const b = bottomBoards(630, 200);
+  near(b.widths.reduce((a, x) => a + x, 0) + (b.widths.length - 1) * b.gap, 624, 1e-6);
+});
+
+test('length over the handles is given', () => {
+  const d = design(st(), 850, 460, 530);
+  assert.equal(d.total.Lh - d.total.L, 2 * (d.handle.proj - d.lid.ovE));
+});
+
+test('the page says when tray boards limit the chest', () => {
+  const r = build(st((x) => { x.boards.N = 12; x.boards.L = 4000; x.trayBoards.N = 1; }));
+  assert.ok(r.ok);
+  assert.equal(r.limitedBy, 'tray');
+  assert.ok(r.notes.some((n) => n.includes('deski na tace')));
+});
+
+test('bottom stress is checked; a fallback chest exceeds the least and says it can break', () => {
+  const r = build(st((x) => { x.boards.T = 12; }));
+  assert.ok(r.checks.some((c) => c.id === 'bottomStress'));
+  if (r.ok && r.fallback) assert.ok(r.warnings.some((w) => w.includes('najmniej')));
+  if (r.ok) for (const c of r.checks.filter((x) => !x.ok && x.unit === 'MPa')) assert.ok(c.hint.includes('pęknąć'));
+});
+
+test('planing is not a rip', () => {
+  const ps = parts(st(), design(st(), 850, 460, 530));
+  assert.ok(ps.filter((p) => p.w >= 197).every((p) => !p.rip));
+});
+
 
 if (failed) { console.log(`\n${failed} failed`); process.exit(1); }
 console.log('\nall passed');

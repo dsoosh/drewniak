@@ -127,7 +127,7 @@ export function viewSVG(res, view, P) {
     let prev = 0;
     for (const x of g.hinges) { s += dimH(prev, x, -d.Do - fs * 6.5, `${fmt(x - prev)}`, P, fs * 0.85); prev = x; }
     s += dimH(prev, d.Lo, -d.Do - fs * 6.5, `${fmt(d.Lo - prev)}`, P, fs * 0.85);
-    for (const x of g.hinges) s += `<rect x="${f(x - 35)}" y="${f(-d.Do - 6)}" width="70" height="8" fill="${P.metal}"/>`;
+    for (const x of g.hinges) s += `<rect x="${f(x - g.hingeLen / 2)}" y="${f(-d.Do - 6)}" width="${f(g.hingeLen)}" height="8" fill="${P.metal}"/>`;
   }
   s += banana(bx, by, P, 1);
   return s + '</svg>';

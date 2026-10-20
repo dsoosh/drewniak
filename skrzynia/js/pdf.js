@@ -83,7 +83,7 @@ export async function makePdf(res, state, img3d) {
   await svgBox(viewSVG(res, 'top', P), M, M + 100, 140, 86);
   doc.setFontSize(9);
   const facts = [
-    `Korpus ${fmt(d.Lo)} × ${fmt(d.Do)} × ${fmt(d.H)} mm, całość ${fmt(d.total.L)} × ${fmt(d.total.D)} × ${fmt(d.total.H)} mm`,
+    `Korpus ${fmt(d.Lo)} × ${fmt(d.Do)} × ${fmt(d.H)} mm, całość ${fmt(d.total.L)} × ${fmt(d.total.D)} × ${fmt(d.total.H)} mm, przez uchwyty ${fmt(d.total.Lh)} mm`,
     `Wnętrze ${fmt(d.inL)} × ${fmt(d.inD)} × ${fmt(d.inH)} mm`,
     `Deski ${state.boards.L}×${state.boards.W}×${state.boards.T} mm: ${res.layout.chest.used} z ${state.boards.N}, ${res.rips} cięć wzdłuż`,
     `Wczepy korpusu ${d.n} × ${n1(d.w)} mm; razem ${res.fingers.total} wczepów (ok. ${Math.round(res.fingers.hours)} h)`,

@@ -85,7 +85,7 @@ function render() {
   $('headline').textContent = `${fmt(d.total.L)} × ${fmt(d.total.D)} × ${fmt(d.total.H)} mm · wnętrze ${fmt(d.inL)} × ${fmt(d.inD)} × ${fmt(d.inH)} mm`;
   const used = res.layout.chest.used, card = (q, unit, w, s, c) => `<div class="card" style="--c:${c || 'var(--accent)'}"><span class="q${String(q).length > 6 ? ' sm' : ''}">${q}<small>${unit}</small></span><span class="w">${w}</span><span class="s">${s}</span></div>`;
   $('order').innerHTML = [
-    card(`${fmt(d.Lo)}×${fmt(d.Do)}×${fmt(d.H)}`, 'mm', 'Korpus', `z wiekiem i cokołem ${fmt(d.total.L)} × ${fmt(d.total.D)} × ${fmt(d.total.H)}`),
+    card(`${fmt(d.Lo)}×${fmt(d.Do)}×${fmt(d.H)}`, 'mm', 'Korpus', `z wiekiem i cokołem ${fmt(d.total.L)} × ${fmt(d.total.D)} × ${fmt(d.total.H)}, przez uchwyty ${fmt(d.total.Lh)}`),
     card(used, `z ${state.boards.N}`, 'Deski skrzyni', `${state.boards.L}×${state.boards.W}×${state.boards.T} · ${res.rips} cięć wzdłuż`),
     res.layout.tray ? card(res.layout.tray.used, `z ${state.trayBoards.N}`, 'Deski na tace', `${state.trayBoards.L}×${state.trayBoards.W}×${state.trayBoards.T}`) : '',
     card(res.fingers.total, 'wczepów', `${res.fingers.corners} narożników`, `ok. ${Math.round(res.fingers.hours)} h trasowania i dopasowania`),
@@ -94,7 +94,7 @@ function render() {
   ].join('');
   $('facts').innerHTML = [
     ['Wczepy korpusu', `${d.n} × ${n1(d.w)} mm`], ['Cokół', `${n1(d.skirt.h)} mm, ${d.skirt.n} wczepy`], ['Fartuch wieka', `${n1(d.apron.h)} mm`],
-    ['Uchwyty', `${n1(d.handle.bot)}–${n1(d.handle.top)} mm`], ['Wieko', `${fmt(d.lid.len)} × ${fmt(d.lid.depth)} mm, ${d.lid.glued ? 'klejone' : 'na zakładkę'}`],
+    ['Uchwyty', `${n1(d.handle.bot)}–${n1(d.handle.top)} mm`], ['Wieko', `płyta ${fmt(d.lidPanel.len)} × ${n1(d.lidPanel.depth)} mm w fartuchu, ${d.lid.glued ? 'klejona' : 'na zakładkę'}`],
     d.trays.length ? ['Tace', `${d.trays.length} × ${state.trayH} mm, ${d.trayFl.n} wczepów`] : null,
     ['Pod tacami', `${fmt(d.free)} mm`],
   ].filter(Boolean).map(([k, v]) => `<span>${k}: <b>${esc(v)}</b></span>`).join('');

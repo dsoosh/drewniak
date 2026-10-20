@@ -162,6 +162,35 @@ H 250–700), przyjęta w specu:
 Szew klejenia, który przy danych deskach nie trafia w siatkę, przesuwamy resztówką o
 ≤ w/2 kosztem jednego cięcia wzdłuż; w ocenie kandydatów to rozstrzyga dopiero remis.
 
+### Po recenzji implementacji (zadanie 5.2)
+
+Obaj mistrzowie zbudowali konfiguracje skryptami i znaleźli rozjazdy, przyjęte w specu i kodzie:
+
+- **Wieko:** fartuch obejmuje płytę, wierzchy równo; płyta (LL − 2T) × (LD − T). Wcześniej lista
+  cięć i geometria opisywały dwie różne bryły. Kontrola wieka liczy szerokość płyty.
+- **Bez klejenia krawędzi:** pionowa listwa od środka na każdym boku, jeden wkręt w oś każdej
+  deski. Bez niej środkowy pierścień desek nie był związany z uchwytami.
+- **Naprzemienny układ wczepów** (A…A / B…B na kolejnych deskach, propozycja rzemieślnika)
+  **odrzucony**: przy parzystej liczbie desek wierzchni wczep ściany przypadałby bokowi, wbrew
+  zasadzie, że przód i tył trzymają skrajne wczepy.
+- **Cokół** dobierany do rytmu wczepów korpusu (0,85–1,15 w przy h/H 0,15–0,25), **szwy** na
+  granicy albo w środkowej trzeciej części wczepu, **uchwyt** m·w/2 w 45–70 mm z podcięciem, które
+  zostawia ≥ 10 mm wysięgu.
+- **Łączniki od T:** gwoździe od 20 mm, wkręty zawiasów i łańcuszka ≤ T − 3 (od 3×8), wkręty
+  fartuchów bocznych 3,5×50 / 5×60 / 5×80, wkręty listew i prowadnic przez pogłębiony otwór, żeby
+  weszły w ścianę T − 3. Śruby M6 2T + stopka + 15.
+- **Luz montażowy** 2 mm na listwach, prowadnicach i dnie; rama cokołu +0,5 mm; podział resztówki
+  dna bez zgubionej szczeliny; przestrugnięcie (do rzazu + 3 mm) nie liczy się jako cięcie wzdłuż.
+- **Uchwyty kupne:** tace zaczynają się za nakrętkami kołpakowymi; klocki są w modelu.
+- **Kontrole:** naprężenie także w dnie; σ > 14 MPa to „może pęknąć”. Gdy nic nie przechodzi,
+  wynik to skrzynia z najmniejszym przekroczeniem, szukana od najkrótszych (przekroczenie rośnie z
+  rozpiętością).
+- **Szukanie:** limit 600 prawdziwych rozkrojów (odrzucenia z rachunku powierzchni się nie liczą)
+  i dominacja tac: taca, która się nie zmieściła, wyklucza każdą dłuższą i głębszą. Strona mówi,
+  gdy wymiar ogranicza materiał na tace (sprawdzone: same deski skrzyni zmieściłyby większą), i
+  gdy obrys wychodzi poza ±0,05 proporcji. Domyślnie 3 deski na tace.
+- **Wymiar przez uchwyty** obok wymiaru przez fartuchy.
+
 ## Risks / Trade-offs
 
 - [Kopia algorytmu rozkroju rozjedzie się ze skrzynką] → testy rozkroju w `tests/skrzynia.test.js`; ujednolicenie jako następna zmiana.
