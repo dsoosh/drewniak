@@ -15,14 +15,14 @@
 
 ## 3. Strona
 
-- [ ] 3.1 `skrzynia/index.html` + `skrzynia/js/app.js`: formularz (deski skrzyni, deski tac, klejenie krawędzi, cel, blokady, tace i ich wysokość, uchwyty, obciążenie, wysokość pod stołem, wykończenie; cokół i fartuch liczone z siatki), wyniki, ostrzeżenia, zastrzeżenie „to nie jest projekt”, localStorage i `#hash`; w `node tools/serve.js` link odtwarza tę samą skrzynię, konsola czysta
-- [ ] 3.2 Rzuty przód/bok/góra z wymiarami, wczepami, cokołem, tacami i bananem; rozkrój obu kompletów desek z kolejnością cięć; lista cięć ze szkicami; sprawdzić wizualnie na domyślnej skrzyni i na 2 tacach
-- [ ] 3.3 Model 3D (three.js 0.160) z otwieranym wiekiem, wczepami i bananem; zrzut ekranu z Playwright
-- [ ] 3.4 PDF (jsPDF + svg2pdf.js, font DejaVu ze szkieletu) z rzutami, rozkrojem, listą cięć, okuciami, planem pracy, kontrolami i zastrzeżeniem; plik się pobiera i ma wszystkie sekcje
+- [x] 3.1 `skrzynia/index.html` + `skrzynia/js/app.js`: formularz (deski skrzyni, deski tac, klejenie krawędzi, cel, blokady, tace i ich wysokość, uchwyty, obciążenie, wysokość pod stołem, wykończenie; cokół i fartuch liczone z siatki), wyniki, ostrzeżenia, zastrzeżenie „to nie jest projekt”, localStorage i `#hash`; w `node tools/serve.js` link odtwarza tę samą skrzynię, konsola czysta
+- [x] 3.2 Rzuty przód/bok/góra z wymiarami, wczepami, cokołem, tacami i bananem; rozkrój obu kompletów desek z kolejnością cięć; lista cięć ze szkicami; sprawdzić wizualnie na domyślnej skrzyni i na 2 tacach
+- [x] 3.3 Model 3D (three.js 0.160) z otwieranym wiekiem, wczepami i bananem; zrzut ekranu z Playwright
+- [x] 3.4 PDF (jsPDF + svg2pdf.js, font DejaVu ze szkieletu) z rzutami, rozkrojem, listą cięć, okuciami, planem pracy, kontrolami i zastrzeżeniem; plik się pobiera i ma wszystkie sekcje
 
 ## 4. Strona główna i dokumentacja
 
-- [ ] 4.1 Karta skrzyni w `index.html` i wpis w `README.md` (z `node tests/skrzynia.test.js`); link działa lokalnie
+- [x] 4.1 Karta skrzyni w `index.html` i wpis w `README.md` (z `node tests/skrzynia.test.js`); link działa lokalnie
 
 ## 5. Integracja
 

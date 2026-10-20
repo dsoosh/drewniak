@@ -1,0 +1,18 @@
+/* Additions to ../szkielet/app.css for the tool chest page. */
+.drawgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 12px; padding: 10px; }
+.drawgrid figure { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.drawgrid figcaption { font: 700 14px var(--display); font-stretch: 88%; text-transform: uppercase; letter-spacing: .05em; color: var(--accent); }
+.drawgrid svg, .drawing svg { width: 100%; height: auto; display: block; }
+.drawing figure { margin: 0 0 12px; }
+.drawing figcaption { font-size: 13px; color: var(--muted); font-family: var(--mono); }
+.plan { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; max-width: 80ch; }
+.plan b { font-family: var(--display); font-stretch: 88%; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.cols ul { margin: 0; padding-left: 20px; }
+td.sk svg { display: block; max-width: 130px; height: auto; }
+.level { font: 800 44px/1 var(--display); font-stretch: 78%; }
+#errors .alert ul { margin: 4px 0 0; padding-left: 18px; }
+.alert.note { background: var(--panel); border-left-color: var(--accent); }
+.card .q.sm { font-size: 24px; }
+#results:not([hidden]) { display: flex; flex-direction: column; gap: 18px; }
+@media (max-width: 520px) { .drawgrid { grid-template-columns: 1fr; } }

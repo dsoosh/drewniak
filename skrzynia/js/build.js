@@ -537,7 +537,8 @@ export function trayHole(s, d) {
 function fasteners(s, d, cleatScrews) {
   const { T } = s.boards;
   const out = [];
-  const nail = (joint, depth, count, note) => { const n = nailUpTo(depth - 3); out.push({ joint, item: 'gwóźdź kuty lub cięty, czerniony', size: `${n} mm`, len: n, qty: count, note }); };
+  // nails: never longer than the material along them minus 3 mm, and no longer than 3T
+  const nail = (joint, depth, count, note) => { const n = nailUpTo(Math.min(depth - 3, 3 * T)); out.push({ joint, item: 'gwóźdź kuty lub cięty, czerniony', size: `${n} mm`, len: n, qty: count, note }); };
   const screw = (joint, depth, count, note, minD) => { const sc = screwUpTo(depth - 3, minD); out.push({ joint, item: 'wkręt do drewna, czerniony', size: screwName(sc), len: sc && sc[1], qty: count, note }); };
   // skirt: one line at mid-overlap, from 2T off the carcass corners, ≤ 150 apart
   const skirtRow = (len) => Math.ceil((len - 4 * T) / 150) + 1;

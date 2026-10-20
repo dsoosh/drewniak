@@ -7,6 +7,8 @@ długości handlowe i PDF. Strona: https://dsoosh.github.io/drewniak/
   100×100: dach jedno- lub dwuspadowy, drzwi, okna i ścianki działowe wstawiane na rzutach,
   poszycie OSB, pokrycie z płyt falistych, kontrola ugięć, PDF.
 - **[Skrzynka na narzędzia](skrzynka/)** — skrzynka z jednej deski, robiona narzędziami ręcznymi.
+- **[Skrzynia warsztatowa](skrzynia/)** — skrzynia z wiekiem, tacami i cokołem z desek, które masz:
+  wszystkie narożniki na wczepy proste, dno na listwach, kontrola wieka i dna, plan pracy, PDF.
 
 ## Praca z repo
 
@@ -17,6 +19,7 @@ Każda zmiana przechodzi przez [OpenSpec](https://github.com/Fission-AI/OpenSpec
 ```sh
 node tools/serve.js          # podgląd na http://127.0.0.1:5182/
 node tests/build.test.js     # testy generatora i rozkroju
+node tests/skrzynia.test.js  # testy skrzyni warsztatowej
 node tools/build-skrzynka.js # składa skrzynka/index.html z body.html
 node tools/sync-agents.js    # kopiuje skille i agenta z .claude/ do .github/
 openspec validate --all --strict

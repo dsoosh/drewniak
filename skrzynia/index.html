@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Skrzynia warsztatowa</title>
+<meta name="description" content="Skrzynia warsztatowa z wiekiem, tacami i cokołem, na wczepach prostych, z desek, które masz. Rozkrój, lista cięć, plan pracy narzędziami ręcznymi i PDF.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="../szkielet/app.css">
+<link rel="stylesheet" href="skrzynia.css">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="../">drewniak</a>
+  <h1>Skrzynia warsztatowa</h1>
+  <p class="sub" id="headline">Z desek, które masz · wczepy proste · narzędzia ręczne</p>
+  <div class="actions">
+    <button id="btnPdf" class="primary">Pobierz PDF</button>
+    <button id="btnLink">Kopiuj link</button>
+    <button id="btnReset">Od nowa</button>
+  </div>
+</header>
+
+<div class="layout">
+  <form class="side" id="form" aria-label="Parametry" autocomplete="off">
+    <fieldset>
+      <legend>Deski</legend>
+      <label for="bL">Długość</label><input id="bL" type="number" inputmode="numeric" step="10">
+      <label for="bW">Szerokość</label><input id="bW" type="number" inputmode="numeric" step="5">
+      <label for="bT">Grubość po struganiu</label><input id="bT" type="number" inputmode="numeric">
+      <label for="bN">Liczba desek</label><input id="bN" type="number" inputmode="numeric">
+      <label for="kerf">Rzaz piły</label><input id="kerf" type="number" inputmode="decimal" step="0.5">
+      <label for="trim">Obcięcie końców</label><input id="trim" type="number" inputmode="numeric">
+      <label class="chkrow"><input id="edgeGlue" type="checkbox"> klejenie krawędzi</label>
+      <p class="note">Bez klejenia krawędzi ściana to całe deski położone na sobie, a wieko deski na zakładkę.</p>
+    </fieldset>
+    <fieldset>
+      <legend>Wymiary</legend>
+      <label for="goal">Cel</label><select id="goal"><option value="proportions">proporcje</option><option value="capacity">pojemność</option></select>
+      <label for="lockL">Stała długość</label><input id="lockL" type="number" inputmode="numeric" step="10" placeholder="dowolna">
+      <label for="lockD">Stała głębokość</label><input id="lockD" type="number" inputmode="numeric" step="10" placeholder="dowolna">
+      <label for="lockH">Stała wysokość ścian</label><input id="lockH" type="number" inputmode="numeric" step="10" placeholder="dowolna">
+      <label for="minInner">Min. długość wewnątrz</label><input id="minInner" type="number" inputmode="numeric" step="10">
+      <label for="clear">Wysokość pod stołem</label><input id="clear" type="number" inputmode="numeric" step="10" placeholder="bez stołu">
+      <p class="note">Wymiary w milimetrach. Wysokość to ściany korpusu; całość z wiekiem i cokołem stoi w wynikach.</p>
+    </fieldset>
+    <fieldset>
+      <legend>Tace</legend>
+      <label for="trays">Liczba tac</label><select id="trays"><option value="0">0</option><option value="1">1</option><option value="2">2</option></select>
+      <label for="trayH">Wysokość tacy</label><input id="trayH" type="number" inputmode="numeric" step="10">
+      <label class="chkrow"><input id="trayOwn" type="checkbox"> osobne, cieńsze deski na tace</label>
+      <label for="tL" data-tray>Długość</label><input id="tL" type="number" inputmode="numeric" step="10" data-tray>
+      <label for="tW" data-tray>Szerokość</label><input id="tW" type="number" inputmode="numeric" step="5" data-tray>
+      <label for="tT" data-tray>Grubość</label><input id="tT" type="number" inputmode="numeric" data-tray>
+      <label for="tN" data-tray>Liczba</label><input id="tN" type="number" inputmode="numeric" data-tray>
+    </fieldset>
+    <fieldset>
+      <legend>Wykończenie</legend>
+      <label for="handles">Uchwyty</label><select id="handles"><option value="wood">drewniane</option><option value="bought">kupne, na śrubach</option></select>
+      <label for="finish">Powłoka</label><select id="finish"><option value="oil">olej-wosk</option><option value="paint">farba mleczna</option></select>
+      <label for="load">Narzędzia w skrzyni, kg</label><input id="load" type="number" inputmode="numeric" step="5">
+    </fieldset>
+  </form>
+
+  <main class="main">
+    <section class="alerts" id="errors"></section>
+    <div id="results">
+      <section class="order" id="order" aria-label="Skrzynia"></section>
+      <section class="facts" id="facts"></section>
+      <section class="alerts" id="alerts"></section>
+
+      <section class="work">
+        <div class="tabs" role="tablist">
+          <button type="button" role="tab" data-tab="3d" aria-selected="true">Model 3D</button>
+          <button type="button" role="tab" data-tab="views">Rzuty</button>
+          <button type="button" role="tab" data-tab="sections">Przekroje</button>
+          <button type="button" role="tab" data-tab="boards">Rozkrój</button>
+        </div>
+        <div class="pane" data-pane="3d">
+          <div class="bar">
+            <label class="chk">Wieko <input id="lidAngle" type="range" min="0" max="100" value="80" aria-label="Otwarcie wieka"></label>
+            <p class="hint-inline">Przeciągnij, żeby obrócić; kółko przybliża.</p>
+          </div>
+          <div class="viewer" id="viewer"></div>
+        </div>
+        <div class="pane" data-pane="views" hidden><div class="drawgrid" id="views"></div></div>
+        <div class="pane" data-pane="sections" hidden><div class="drawgrid" id="sections"></div></div>
+        <div class="pane" data-pane="boards" hidden><div class="drawing" id="boards"></div></div>
+      </section>
+
+      <section class="block"><h2>Lista cięć</h2><div class="tw" id="cutlist"></div></section>
+      <section class="block"><h2>Łączniki i okucia</h2><div class="tw" id="fasteners"></div><div class="tw" id="hardware"></div></section>
+      <section class="block"><h2>Kontrole</h2><div class="tw" id="checks"></div></section>
+      <section class="block"><h2>Plan pracy</h2><ol class="plan" id="plan"></ol></section>
+      <section class="block cols">
+        <div><h2>Narzędzia</h2><ul id="tools"></ul></div>
+        <div><h2>Trudność</h2><div id="difficulty"></div></div>
+      </section>
+    </div>
+    <p class="disclaimer">Wyniki to wstępny dobór konstrukcji z kontrolą rozsądku, nie projekt. Ugięcia liczone dla sosny bez klasy (E = 9000 MPa), belka swobodnie podparta.</p>
+  </main>
+</div>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
