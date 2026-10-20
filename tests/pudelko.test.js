@@ -1,7 +1,7 @@
 // Checks of the practice box generator against the spec scenarios.
 // Run: node tests/pudelko.test.js
 import assert from 'assert';
-import { build, design, parts, defaultState, grooveWidth, panelFit, panelStrips, fingerLayout } from '../pudelko/js/build.js';
+import { build, design, parts, defaultState, grooveWidth, bottomGroove, panelFit, panelStrips, fingerLayout } from '../pudelko/js/build.js';
 
 let failed = 0;
 const test = (name, fn) => { try { fn(); console.log('ok  ', name); } catch (e) { failed++; console.log('FAIL', name, '\n     ', e.message); } };
@@ -20,9 +20,10 @@ test('practice box: 5 fingers of 18 mm, walls at outer size + 1', () => {
 
 test('all locked: exactly that box, every lid, no warnings, finite', () => {
   for (const lid of LIDS) {
-    const r = build(st((s) => { s.lid = lid; }));
+    const H = lid === 'hinged' ? 100 : 90;
+    const r = build(st((s) => { s.lid = lid; s.lock.H = H; }));
     assert.ok(r.ok, lid);
-    assert.deepEqual([r.d.Lo, r.d.Do, r.d.H], [240, 150, 90]);
+    assert.deepEqual([r.d.Lo, r.d.Do, r.d.H], [240, 150, H]);
     assert.deepEqual(r.warnings, [], `${lid}: ${r.warnings}`);
     finite(r);
     assert.ok(r.geometry.boxes.length > 20);
@@ -95,27 +96,33 @@ test('lift-off lid: rim 3w, ends hold its outer fingers, lip strips, n ≥ 5', (
   assert.ok(low.tips.some((t) => t.includes('Najbliższa wysokość z 5 wczepami')), low.tips.join(' | '));
 });
 
-test('sliding lid: low end 78, high end 90, recess 24 × 10 × 4', () => {
+test('sliding lid: low end 78, high end 90, recess 24 × 16 × 4', () => {
   const r = build(st((s) => { s.lid = 'slide'; }));
   assert.equal(r.parts.find((p) => p.key === 'endL').w, 78);
   assert.equal(r.parts.find((p) => p.key === 'endR').w, 90);
   const rc = r.d.slide.recess;
-  assert.deepEqual([rc.w, rc.len, rc.depth, rc.from], [24, 10, 4, 12]);
+  assert.deepEqual([rc.w, rc.len, rc.depth, rc.from], [24, 16, 4, 12]);
   assert.ok(!r.parts.some((p) => /klocek/i.test(p.name)));
-  assert.ok(r.plan.some(([t, x]) => /przelotowe przy niskim boku, zatrzymane przy wysokim/.test(x)));
+  assert.ok(r.plan.some(([t, x]) => /przelotowe przy niskim boku, zatrzymane [0-9,]+ mm przed końcem przy wysokim/.test(x)));
 });
 
-test('hinged lid: marked 92, cut mid band, 45 / 45, hinges 30 mm 30 from the ends', () => {
-  const r = build(st((s) => { s.lid = 'hinged'; }));
+test('hinged lid: n ≥ 7, marked 102, cut mid fifth band at 65.3 raw, 35.7 / 64.3, hinges 30 mm', () => {
+  const r = build(st((s) => { s.lid = 'hinged'; s.lock.H = 100; }));
   const h = r.d.hinged;
-  assert.equal(r.d.markH, 92); assert.equal(h.band, 2); near(h.lidH, 45); near(h.bodyH, 45);
-  assert.equal(h.hinge.len, 30); assert.equal(h.hinge.from, 30); assert.equal(h.hinge.leaf, 10); assert.equal(h.hinge.screw[0], 3);
+  assert.equal(r.d.n, 7); assert.equal(r.d.markH, 102); assert.equal(h.band, 4);
+  near(h.rawCut, 65.29); near(h.lidH, 35.71); near(h.bodyH, 64.29);
+  assert.ok(h.lidH >= 2.5 * r.d.w - 1e-9 && h.bodyH >= 2.5 * r.d.w - 1e-9);
+  assert.equal(h.hinge.len, 30); assert.equal(h.hinge.leaf, 9); assert.equal(h.hinge.from, 30); assert.equal(h.hinge.screw[0], 3);
   near(h.grip.depth, 4); near(h.grip.len, 80);
   assert.ok(r.hardware.some((x) => x.item.includes('ogranicznikiem 95°')));
   const plan = r.plan.find(([t]) => t === 'Odcinanie wieka')[1];
-  for (const k of ['zamknięte pudełko', 'dookoła', 'kliny', 'od narożnika do środka', 'Wpuść zawiasy']) assert.ok(plan.includes(k), k);
-  const low = build(st((s) => { s.lid = 'hinged'; s.lock.H = 50; }));
+  for (const k of ['zamknięte pudełko', 'dookoła', '65,3 mm od dołu surowego', 'kliny', 'od narożnika do środka', 'Wpuść zawiasy']) assert.ok(plan.includes(k), k);
+  assert.ok(r.plan.find(([t]) => t === 'Rowki')[1].includes('od górnej krawędzi'));
+  const low = build(st((s) => { s.lid = 'hinged'; }));
   assert.equal(low.ok, false);
+  assert.ok(low.tips.some((t) => t.includes('Najbliższa wysokość z 7 wczepami: 100 mm')), low.tips.join(' | '));
+  const thin = build(st((s) => { s.lid = 'hinged'; s.boards.T = 8; s.lock = { L: 240, D: 150, H: 80 }; s.boards.W = 150; }));
+  assert.ok(thin.ok, JSON.stringify(thin.tips)); assert.equal(thin.d.hinged.hinge.len, 20);
 });
 
 test('flat lid: 252 × 162, battens 12 × 18 × 124 one mm inside the ends', () => {
@@ -159,11 +166,55 @@ test('tools and difficulty', () => {
   assert.equal(thin.difficulty.level, Math.min(5, r.difficulty.level + 1));
 });
 
-test('templates: walls with the widened band for the hinged lid', () => {
-  const r = build(st((s) => { s.lid = 'hinged'; }));
+test('templates: widened band and cut line for the hinged lid', () => {
+  const r = build(st((s) => { s.lid = 'hinged'; s.lock.H = 100; }));
   const t = r.templates[0];
-  assert.equal(t.bands.length, 5); assert.equal(t.bands[2], 20); near(t.bands.reduce((a, b) => a + b, 0), 92);
+  assert.equal(t.bands.length, 7); near(t.bands[4], 16.29); near(t.bands.reduce((a, b) => a + b, 0), 102); near(t.cut, 65.29);
   assert.equal(build(st()).templates.length, 2);
+});
+
+test('grooves: stopped T − d short, shoulders c/2 clear', () => {
+  const s = st((x) => { x.wood = 'hard'; x.lock = { L: 450, D: 330, H: 100 }; x.boards = { L: 3000, W: 200, T: 12, N: 6 }; });
+  const d = design(s, 450, 330, 100);
+  assert.ok(d.bottom.d > 6); near(d.bottom.stop, 12 - d.bottom.d, 1e-9);
+  const r = build(st());
+  const body = r.geometry.boxes.filter((b) => b.kind === 'bottom').sort((a, b) => (a.y1 - a.y0) - (b.y1 - b.y0))[0];
+  near(body.y0 - 12, r.d.bottom.play / 2, 1e-6);
+  assert.ok(r.plan.find(([t]) => t === 'Płyty')[1].includes(`${r.d.bottom.d}`.replace('.', ',')));
+});
+
+test('narrow band takes a narrower iron; too narrow is explained', () => {
+  assert.deepEqual(bottomGroove(12, 12), { g: 5, z0: 4, z1: 9 });
+  const r = build(st((s) => { s.boards.T = 8; s.lock = { L: 200, D: 120, H: 40 }; s.lid = 'flat'; }));
+  assert.equal(r.ok, false);
+  assert.ok(r.tips.some((t) => t.includes('Pas dolnego wczepu jest za wąski')), r.tips.join(' | '));
+});
+
+test('free length within 12–30 T: no flimsy warning for thin boards', () => {
+  for (const lid of LIDS) {
+    const s = defaultState(); s.lid = lid; s.boards.T = 8; s.boards.W = 150;
+    const r = build(s);
+    if (!r.ok) continue;
+    assert.ok(r.d.Lo <= 240 && r.d.Lo >= 96, `${lid} ${r.d.Lo}`);
+    assert.ok(!r.warnings.some((w) => w.includes('wiotko')));
+  }
+});
+
+test('sliding lid with a free height avoids a near miss at the finger line', () => {
+  const s = defaultState(); s.lid = 'slide';
+  const r = build(s);
+  const gap = r.d.w - r.d.T;
+  assert.ok(gap < 0.5 || gap >= 3, `${gap}`);
+});
+
+test('narrow board: the smallest width that works is named', () => {
+  const r = build(st((s) => { s.lid = 'flat'; s.boards.W = 60; s.lock = { L: 240, D: 150, H: null }; s.lock.H = 90; }));
+  assert.ok(r.tips.some((t) => t.includes('co najmniej 90 mm')), r.tips.join(' | '));
+});
+
+test('drawings keep the outline: hinges and grip inside the box', () => {
+  const r = build(st((s) => { s.lid = 'hinged'; s.lock.H = 100; }));
+  for (const b of r.geometry.boxes.filter((x) => x.kind === 'hinge' || x.kind === 'grip')) assert.ok(b.y0 >= 0 && b.y1 <= 150, b.kind);
 });
 
 test('the finger rule is the tool chest rule', () => {

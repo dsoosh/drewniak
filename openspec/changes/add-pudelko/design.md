@@ -86,6 +86,28 @@ podgląd w zakładce.
 `pudelko/index.html` w układzie szkieletu i skrzyni (`../szkielet/app.css` +
 `../skrzynia/skrzynia.css`), rysunki z geometrii jak w skrzyni, three.js 0.160.
 
+### Po recenzji implementacji (zadanie 4.2)
+
+- **Płyty:** pióro długie na głębokość rowka d, ramiona wrębu c/2 od ścianek (wcześniej 0, płyta
+  po spęcznieniu rozpychała narożniki), rowki zatrzymane T − d przed końcem (przy głębszym rowku
+  T/2 dawało płytę za długą o 2d − T − 1).
+- **Rowek dna:** ≥ 3 mm drewna do linii wczepu; gdy się nie mieści, węższe żelazo (np. 5 mm przy
+  w = 12); gdy nawet 3 mm nie wchodzi — odrzucenie z wyjaśnieniem.
+- **Wieko odcinane od 7 wczepów** (rzemieślnik: przy 5 wieko i korpus wychodzą równe), wieko
+  (k + ½)w najbliżej H/3; spełnia też warunek ciesielski ≥ 2,5w na część. Plan podaje linię
+  cięcia i rowek płyty na surowych ściankach.
+- **Zawiasy z tabeli typowych skrzydełek** (20/25/30/40/50 → 6/7,5/9/10,5/12,5 mm), najbliżej L/8
+  wśród tych, które mieszczą się w T − 2; odsunięcie max(długość, T + 5). Wartości skrzydełek są
+  orientacyjne, ze sprawdzeniem w ofercie przy zakupie.
+- **Cofnięcie płyt 3–6 mm**, wnęka na palec 24 × 16 mm, przykrywka wsuwana bez schodka 0,5–3 mm
+  przy wolnej wysokości, wolna długość w 12–30 T, w sortowaniu najpierw ścianki z jednego pasa.
+- **Rysunki:** wymiary z korpusu, zawiasy i fazka chwytu w obrysie, banan za wymiarami; szablon
+  z linią cięcia wieka.
+- **Diagnoza:** najmniejsza potrzebna szerokość deski, osobne komunikaty dla pasa, zawiasów i
+  zbyt małego pudełka.
+- **Nie przyjęte:** zestruganie grubych płyt do T/2 + 4 przy T = 20 (ciesielski zostawił do
+  decyzji formy; płyta tej samej grubości upraszcza rozkrój i ćwiczenie).
+
 ## Risks / Trade-offs
 
 - [Import z `skrzynia/js/build.js` wiąże pudełko ze skrzynią] → importujemy tylko `fingerLayout`

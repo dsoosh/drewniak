@@ -24,14 +24,18 @@ be searched on a 10 mm grid among boxes whose parts can be cut from the boards.
 - **THEN** the page hides the results and says how much more board is needed
 
 ### Requirement: Goal for the free dimensions
-Goal "proportions" (default) SHALL pick, among boxes whose outline including the lid is within
-±0.05 of length : depth : height = 1 : 0.6 : 0.4, the one with more fingers per corner, then the
-one with top panels from one board, then the largest; else the closest. Goal "capacity" SHALL
-pick the largest inner volume.
+A free length SHALL stay within 12 T–30 T. Goal "proportions" (default) SHALL pick, among boxes
+whose outline with the lid is within ±0.05 of 1 : 0.6 : 0.4, walls from one strip first, then
+more fingers per corner, then top panels from one board, then the largest; else the closest.
+Goal "capacity" SHALL pick the largest inner volume.
 
 #### Scenario: Proportions on the outline
 - **WHEN** the goal is "proportions" and nothing is locked
 - **THEN** the outline with the lid has depth and height within 0.05 of 0.6 and 0.4 of the length, or the page says what keeps it out
+
+#### Scenario: Thin board, free length
+- **WHEN** T is 8 mm and the length is free
+- **THEN** the proposed box is at most 240 mm long and gets no warning that it looks flimsy
 
 ### Requirement: Finger layout as in the tool chest
 Every corner SHALL be a finger joint glued without nails, laid out by the rule of the tool chest:
@@ -48,7 +52,7 @@ width, never glued from strips; heights that need a wider board SHALL NOT be pro
 
 #### Scenario: Board too narrow for the walls
 - **WHEN** the board is 80 mm wide and the walls are locked at 90 mm
-- **THEN** the page says the walls need a board at least 90 mm wide
+- **THEN** the page says the walls need a board at least 90 mm wide, the smallest width that would work
 
 ### Requirement: Horizontal lines on the finger grid
 Every horizontal line that crosses a corner (lid rim height, lip strip bottom) SHALL lie on a
@@ -72,20 +76,34 @@ below T = 10) and at most T − 3 mm; a box that needs more SHALL NOT be propose
 - **THEN** the groove is 6 mm deep and the panel keeps at least 3 mm in the groove when pushed to one side
 
 ### Requirement: Groove width from plough irons
-The groove width SHALL be the widest common plough iron (3, 4, 5, 6, 8 or 10 mm) of at most T/2.
+The groove width SHALL be the widest common plough iron (3, 4, 5, 6, 8 or 10 mm) of at most T/2
+that leaves at least 3 mm of wood between the groove and the finger line of its band.
 
 #### Scenario: Odd thickness
 - **WHEN** T is 14 mm
 - **THEN** the grooves are 6 mm wide, not 7
 
+#### Scenario: Narrow band
+- **WHEN** T is 12 mm and the walls are 60 mm high (w = 12 mm)
+- **THEN** the bottom groove is 5 mm wide, from 4 to 9 mm, leaving 3 mm to the finger line
+
 ### Requirement: Floating bottom in a groove
 The bottom SHALL float, unglued, in a groove in the bottom finger band, its lower edge at least
-4 mm above the wall bottom and within the band; through in the ends, stopped T/2 short in the
-front and back. The panel SHALL be rebated from the top, its underside on the groove's lower edge.
+4 mm above the wall bottom; through in the ends, stopped T − d short of the ends in the front
+and back. The panel SHALL be rebated from the top, tongue as long as the groove depth d and
+shoulders c/2 clear of the walls.
 
 #### Scenario: Bottom groove
 - **WHEN** w is 18 mm and T is 12 mm
-- **THEN** the groove is 6 mm wide from 6 to 12 mm above the bottom edge, the panel underside is 6 mm above the table and the box stands on its walls
+- **THEN** the groove is 6 mm wide from 6 to 12 mm above the bottom edge, stopped 6 mm short in the front and back, and the panel underside is 6 mm above the table
+
+#### Scenario: Shoulder play
+- **WHEN** the bottom panel of the practice box has 2.4 mm play
+- **THEN** its body is 2.4 mm narrower than the inside and stands 1.2 mm clear of the front and the back
+
+#### Scenario: Deep groove
+- **WHEN** the groove is 8.9 mm deep in 12 mm boards
+- **THEN** the front and back grooves stop 3.1 mm short of the ends so the panel fits
 
 ### Requirement: Panels from one board or symmetric strips
 Every panel (bottom, lid panels) SHALL be one board when it fits, else two equal strips glued on
@@ -95,6 +113,15 @@ jointing allowance per glued edge.
 #### Scenario: Flat lid from two strips
 - **WHEN** the lid panel is 162 mm wide and the board 120 mm
 - **THEN** the cut list shows two equal strips glued with the seam on the axis
+
+### Requirement: Rejections are explained
+When a box cannot be made, the page SHALL name the reason: walls wider than the board (smallest
+width needed), too few fingers for the lid (nearest height that works), board too thin for the
+groove, bottom band too narrow for the groove, box too small, or not enough board.
+
+#### Scenario: Band too narrow
+- **WHEN** T is 8 mm and the walls are locked at 40 mm
+- **THEN** the page says the bottom finger band is too narrow for the groove and suggests higher walls or a thicker board
 
 ### Requirement: Lid type is chosen by the user
 The user SHALL choose one closure: lift-off lid, sliding lid, hinged lid cut from the closed box,
@@ -130,42 +157,53 @@ proud part for play to the rim and a 1 mm chamfer on the top edge.
 ### Requirement: Sliding lid
 The sliding lid SHALL run along the length in grooves of the front and back with its top flush
 with the walls and its tongue at the underside; one end SHALL stop at H − T under the lid, the
-other end SHALL be full height with a groove taking the lid's end.
+other end SHALL be full height with a groove taking the lid's end. A free height SHALL give
+w − T of 0 or at least 3 mm, so the low end does not almost meet a finger line.
 
 #### Scenario: Sliding lid on the practice box
 - **WHEN** the walls are 90 mm high and T is 12 mm
-- **THEN** the low end is 78 mm high, the high end 90 mm with a groove, and the front and back grooves are through at the low end and stopped at the high end
+- **THEN** the low end is 78 mm high, the high end 90 mm with a groove, and the front and back grooves are through at the low end and stopped T − d short at the high end
+
+#### Scenario: Near miss avoided
+- **WHEN** the height is free and T is 12 mm
+- **THEN** no proposed box has a low end between 0.5 and 3 mm from a finger line
 
 ### Requirement: Sliding lid panel
 The lid panel SHALL have its grain along the length, the movement play across it, its outer end
-flush with the low end and a shallow finger recess 24 mm wide, T/3 deep and 2.5 × that long, T
-from that end, leaving at least 2T/3 of wood; it SHALL slide out completely, with no stop block.
+flush with the low end and a shallow finger recess 24 × 16 mm, T/3 deep, T from that end; it
+SHALL slide out completely, with no stop block.
 
 #### Scenario: Finger recess
 - **WHEN** T is 12 mm
-- **THEN** the recess is 24 × 10 mm and 4 mm deep, 12 mm from the end of the lid
+- **THEN** the recess is 24 × 16 mm and 4 mm deep, 12 mm from the end of the lid
 
 ### Requirement: Hinged lid cut from the closed box
 The hinged lid SHALL be sawn from the glued-up closed box in the middle of one finger band, marked
-w + saw kerf + 1 mm wide so both halves are w/2 after planing. Lid and body SHALL each be at least
-2.5w (two glue faces per corner); the lid is (k + ½)·w with k = max(2, ⌊0.3·n⌋). It needs n ≥ 5.
+w + saw kerf + 1 mm wide so both halves are w/2 after planing. It SHALL need n ≥ 7; the lid is
+(k + ½)·w with k ≥ 2 closest to H/3, the body the rest, each at least 2.5w. The work plan SHALL
+give the marking line and the lid groove on the raw walls.
 
 #### Scenario: Cut line
-- **WHEN** the finished walls are 90 mm high, w is 18 mm and the hand saw kerf 1 mm
-- **THEN** the box is marked 92 mm high, the cut runs in the middle of the third band, and the lid and body are 45 mm each after planing
+- **WHEN** the finished walls are 100 mm high, T is 12 mm (7 fingers of 14.3 mm) and the saw kerf 1 mm
+- **THEN** the box is marked 102 mm high, the cut runs in the middle of the fifth band at 65.3 mm on the raw walls, and the lid is 35.7 mm and the body 64.3 mm after planing
 
 #### Scenario: Too few fingers
-- **WHEN** the body would have only 3 fingers
-- **THEN** the hinged lid is not offered for that height and the page gives the nearest height with 5 fingers
+- **WHEN** the walls are locked at 90 mm with T = 12 mm (5 fingers)
+- **THEN** the hinged lid is not offered and the page gives 100 mm as the nearest height with 7 fingers
 
 ### Requirement: Hinges of the hinged lid
-Two mortised hinges SHALL have leaves of at most T − 2 mm from the pin, a length from 20, 25, 30,
-40 or 50 mm nearest L/8, an outer end at least max(T + w, w + 10) mm from the box end, a stop at
-95°, and screws of at most T/4 diameter and at most the part height − 5 mm; T ≥ 8 mm.
+Two mortised hinges with a stop at 95° SHALL be chosen from 20, 25, 30, 40 and 50 mm with typical
+leaves of 6, 7.5, 9, 10.5 and 12.5 mm: the length nearest L/8 among those with a leaf of at most
+T − 2. Each SHALL stand max(hinge length, T + 5) from the box end; screws at most T/4 thick and at
+most the part height − 5 mm long.
 
 #### Scenario: Hinges on the practice box
-- **WHEN** the box is 240 mm long with T = 12 mm and w = 18 mm
-- **THEN** the materials list two 30 mm hinges with a 95° stop, leaves of at most 10 mm, placed 30 mm from each end, with 3 mm screws
+- **WHEN** the box is 240 mm long with T = 12 mm
+- **THEN** the materials list two 30 mm hinges with a 95° stop and 9 mm leaves, placed 30 mm from each end, with 3 mm screws
+
+#### Scenario: Thin board
+- **WHEN** T is 8 mm and the box is 240 mm long
+- **THEN** the hinges are 20 mm long
 
 ### Requirement: Grip of the hinged lid
 The hinged lid SHALL get a 45° chamfer T/3 deep on the lower front edge over the middle third of
@@ -186,11 +224,12 @@ so the lid locates both ways, glued only in their middle third.
 
 ### Requirement: Top panels are recessed
 Lid panels in a rim (lift-off lid, hinged lid) SHALL be rebated from the underside, the tongue at
-their top face, so their top lies T/4–T/2 below the rim edge with an even shadow line.
+their top face, so their top lies (w − g)/2 below the rim edge, kept within 3–6 mm, with an even
+shadow line; the work plan SHALL give the groove from the top edge.
 
 #### Scenario: Recess
 - **WHEN** w is 18 mm and T is 12 mm
-- **THEN** the top panel lies 6 mm below the rim edge
+- **THEN** the top panel lies 6 mm below the rim edge and the plan gives the groove 6–12 mm below the top edge
 
 ### Requirement: Checks are shown
 The page SHALL check the bottom under 10 kg spread evenly and the lid panel under 100 N in the
@@ -202,7 +241,7 @@ L/300, and show the results with the loads and the note that this is a prelimina
 - **THEN** the bottom check is shown above its limit with a warning
 
 ### Requirement: Proportion warnings for the board thickness
-The page SHALL warn when the length is more than 30 T (looks flimsy) or less than 12 T (looks
+The page SHALL warn when a locked length is more than 30 T (looks flimsy) or less than 12 T (looks
 heavy).
 
 #### Scenario: Heavy box
@@ -227,6 +266,10 @@ T + 0.5 mm and a 100 mm control bar to check the print scale.
 - **WHEN** the user prints the template page at 100%
 - **THEN** the 100 mm control bar measures 100 mm and the wall template shows 5 fingers of 18 mm with the waste crossed
 
+#### Scenario: Cut line on the template
+- **WHEN** the hinged lid is chosen
+- **THEN** the template shows the widened band with a dashed cut line in its middle and its height from the bottom
+
 ### Requirement: Practice-oriented work plan
 The work plan SHALL be for hand tools only, start with a test corner on scrap, cut the grooves
 before the fingers (stopped ends chopped first), give the finger count and a time estimate, and
@@ -247,7 +290,7 @@ chosen lid, one level more at T = 8 mm.
 
 ### Requirement: Outputs for the workshop
 The page SHALL show a 3D model with the lid opening, lifting or sliding, front, side and top views
-with dimensions, the board layout, the cut list, the work plan, tools and difficulty with the
+with dimensions taken from the box (mortised hardware and chamfers never enlarge the outline), the board layout, the cut list, the work plan, tools and difficulty with the
 techniques. A banana for scale SHALL stand in the 3D model and on every view.
 
 #### Scenario: Results visible

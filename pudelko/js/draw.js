@@ -38,24 +38,24 @@ export function viewSVG(res, view, P) {
   let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
   for (const it of items) { u0 = Math.min(u0, it.u0); u1 = Math.max(u1, it.u1); v0 = Math.min(v0, it.v0); v1 = Math.max(v1, it.v1); }
   const fs = Math.max(8, (u1 - u0) / 26), pad = fs * 5, isTop = view === 'top';
-  const bx = u1 + fs * 9;                                    // banana clear of the dimensions
-  const W = u1 - u0 + 2 * pad + fs * 7 + 220, H = v1 - v0 + 2 * pad + (isTop ? 70 : 0);
+  const bx = u1 + fs * 16;                                   // banana clear of the dimensions and their labels
+  const W = u1 - u0 + 2 * pad + fs * 14 + 220, H = v1 - v0 + 2 * pad + (isTop ? 70 : 0);
   let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${f(u0 - pad)} ${f(v0 - pad)} ${f(W)} ${f(H)}" font-family="${P.font}"><rect x="${f(u0 - pad)}" y="${f(v0 - pad)}" width="${f(W)}" height="${f(H)}" fill="${P.bg}"/>`;
-  if (!isTop) s += `<line x1="${f(u0 - pad)}" y1="0" x2="${f(u1 + fs * 7 + 220 + pad)}" y2="0" stroke="${P.muted}" stroke-width="${f(fs / 10)}"/>`;
+  if (!isTop) s += `<line x1="${f(u0 - pad)}" y1="0" x2="${f(u1 + fs * 14 + 220 + pad)}" y2="0" stroke="${P.muted}" stroke-width="${f(fs / 10)}"/>`;
   for (const it of items) s += `<rect x="${f(it.u0)}" y="${f(it.v0)}" width="${f(it.u1 - it.u0)}" height="${f(it.v1 - it.v0)}" fill="${COLOR(it.b, P)}" stroke="${P.ink}" stroke-opacity="0.45" stroke-width="${f(fs / 18)}"/>`;
-  const totH = d.total.H;
+  const totH = d.total.H, oL = d.total.L, oD = d.total.D, x0 = d.lid === 'flat' ? -d.flat.over : 0;
   if (view === 'front') {
-    s += dimH(u0, u1, -totH - fs * 2.5, fmt(u1 - u0), P, fs);
+    s += dimH(x0, x0 + oL, -totH - fs * 2.5, fmt(oL), P, fs);
     s += dimV(u1 + fs * 2, 0, -d.H, fmt(d.H), P, fs);
-    if (d.lid === 'hinged') s += dimV(u1 + fs * 6, 0, -d.hinged.cut, `cięcie ${fmt(d.hinged.cut)}`, P, fs);
+    if (d.lid === 'hinged') s += dimV(u1 + fs * 6, 0, -d.hinged.cut, `cięcie ${fmt(d.hinged.cut, 1)}`, P, fs);
     if (totH > d.H + 0.5) s += dimV(u1 + fs * 6, -d.H, -totH, fmt(totH - d.H, 1), P, fs);
   }
   if (view === 'side') {
-    s += dimH(u0, u1, -totH - fs * 2.5, fmt(u1 - u0), P, fs);
+    s += dimH(x0, x0 + oD, -totH - fs * 2.5, fmt(oD), P, fs);
     if (d.lid === 'slide') s += dimV(u1 + fs * 2, 0, -d.slide.low, `niski bok ${fmt(d.slide.low)}`, P, fs);
   }
   if (isTop) {
-    s += dimV(u1 + fs * 2, v0, v1, fmt(v1 - v0), P, fs);
+    s += dimV(u1 + fs * 2, -(x0 + oD), -x0, fmt(oD), P, fs);
     if (d.lid === 'hinged') { const h = d.hinged.hinge; s += dimH(0, h.from, -d.Do - fs * 2.5, fmt(h.from), P, fs * 0.9); s += dimH(h.from, h.from + h.len, -d.Do - fs * 2.5, fmt(h.len), P, fs * 0.9); }
   }
   s += banana(bx, isTop ? v1 + 60 : 0, P, 1);
@@ -84,6 +84,8 @@ export function templateSVG(t, T, P, holder = 'front') {
     z += b;
   });
   for (const [label, x0] of cols) s += `<text x="${x0}" y="${f(-h - 4)}" font-size="3.5" fill="#000">${label}</text><line x1="${f(x0 + depth)}" y1="0" x2="${f(x0 + depth)}" y2="${f(-h)}" stroke="#000" stroke-width="0.35"/>`;
+  if (t.cut) for (const [, x0] of cols) s += `<line x1="${x0 - 4}" y1="${f(-t.cut)}" x2="${f(x0 + depth + 4)}" y2="${f(-t.cut)}" stroke="#b4442a" stroke-width="0.35" stroke-dasharray="2 1"/>`;
+  if (t.cut) s += `<text x="${f(80 + depth + 6)}" y="${f(-t.cut + 1.2)}" font-size="3.2" fill="#b4442a">cięcie ${fmt(t.cut, 1)} od dołu</text>`;
   s += `<text x="0" y="6" font-size="3" fill="#000">głębokość ${fmt(depth, 1)} mm (T + 0,5)</text>`;
   s += `<rect x="0" y="12" width="100" height="4" fill="none" stroke="#000" stroke-width="0.3"/><rect x="0" y="12" width="50" height="4" fill="#000"/><text x="102" y="15.5" font-size="3" fill="#000">100 mm</text>`;
   return s + '</svg>';

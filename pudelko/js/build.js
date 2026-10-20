@@ -11,7 +11,7 @@ export { fingerLayout };
 export const E = 9000;                       // MPa, pine without a strength class
 const DENSITY = 500;
 const IRONS = [3, 4, 5, 6, 8, 10];           // common plough plane irons
-const HINGES = [20, 25, 30, 40, 50];
+const HINGES = [[20, 6], [25, 7.5], [30, 9], [40, 10.5], [50, 12.5]];   // length, typical leaf from the pin
 const HINGE_SCREWS = [[2, 8], [2.5, 10], [3, 12], [3, 16]];
 const MIN_PER_FINGER = 12;
 export const LIDS = { lift: 'Pokrywka nasadzana', slide: 'Przykrywka wsuwana', hinged: 'Wieko odcinane na zawiasach', flat: 'Przykrywka płaska' };
@@ -39,6 +39,26 @@ const fmt1 = (v) => R1(v).toString().replace('.', ',');
 
 /** Widest common plough iron of at most T/2. */
 export const grooveWidth = (T) => [...IRONS].reverse().find((g) => g <= T / 2 + 1e-9) || IRONS[0];
+
+/**
+ * Bottom groove in the bottom band: the widest iron ≤ T/2 whose groove, lower edge ≥ 4 mm above the
+ * table, leaves ≥ 3 mm to the finger line. Null when even a 3 mm iron does not fit.
+ */
+export function bottomGroove(w, T) {
+  for (const g of [...IRONS].reverse()) {
+    if (g > T / 2 + 1e-9) continue;
+    const z0 = Math.max(4, (w - g) / 2);
+    if (z0 + g <= w - 3 + 1e-9) return { g, z0, z1: z0 + g };
+  }
+  return null;
+}
+
+/** Top groove in a band ending at bandTop: recess (w − g)/2 kept within 3–6, ≥ 3 mm to the finger line. */
+export function topGroove(bandTop, w, g) {
+  const recess = Math.min(6, Math.max(3, (w - g) / 2));
+  const z1 = bandTop - recess, z0 = z1 - g;
+  return z0 >= bandTop - w + 3 - 1e-9 ? { z0, z1, recess } : null;
+}
 
 /**
  * Groove depth and panel play for a panel spanning `inner` across the grain: play c = m·width + 1,
@@ -81,33 +101,45 @@ export function design(s, Lo, Do, H) {
   if (lid === 'lift' && 3 * w > W + 1e-9) return { reject: 'wallWidth', need: 3 * w };
   const inL = Lo - 2 * T, inD = Do - 2 * T;
   if (inL < 40 || inD < 30) return { reject: 'small' };
-  const g = grooveWidth(T);
+  const bg = bottomGroove(w, T);
+  if (!bg) return { reject: 'band' };
+  const g = bg.g;
   const fit = panelFit(inD, T, s.wood);
   if (!fit) return { reject: 'thin' };
-  // bottom groove in the bottom band, lower edge ≥ 4 mm above the table
-  const bz0 = Math.max(4, (w - g) / 2);
-  if (bz0 + g > w - 1 + 1e-9) return { reject: 'band' };
-  const bottom = { z0: bz0, z1: bz0 + g, d: fit.d, len: inL + 2 * fit.d - 1, width: fit.width, play: fit.c };
-  const top = (bandTop) => ({ z1: bandTop - (w - g) / 2, z0: bandTop - (w - g) / 2 - g, recess: (w - g) / 2 });
+  // panel body is the inside minus the play, tongue as long as the groove is deep, stopped T − d short
+  const bottom = { z0: bg.z0, z1: bg.z1, d: fit.d, len: inL + 2 * fit.d - 1, width: fit.width, play: fit.c, stop: T - fit.d };
+  const top = (bandTop) => { const t = topGroove(bandTop, w, g); return t; };
   const out = { Lo, Do, H, markH, inL, inD, n, w, T, g, bottom, fit, lid };
   if (lid === 'lift') {
-    out.rim = { h: 3 * w, n: 3, panel: { ...top(3 * w), len: bottom.len, width: fit.width } };
+    const tg = top(3 * w);
+    if (!tg) return { reject: 'band' };
+    out.rim = { h: 3 * w, n: 3, panel: { ...tg, len: bottom.len, width: fit.width } };
     out.lip = { t: T / 2, h: w + 6, long: Lo - 2 * T, short: Do - 3 * T };
     out.total = { L: Lo, D: Do, H: H + 3 * w };
   } else if (lid === 'slide') {
+    if (!s.lock.H && w - T > 0.5 && w - T < 3) return { reject: 'step' };
     const lfit = panelFit(inD, T, s.wood);
-    out.slide = { low: H - T, z0: H - T, z1: H - T + g, d: lfit.d, len: Lo - T + lfit.d - 1, width: lfit.width, play: lfit.c,
-      recess: { w: 24, depth: T / 3, len: 2.5 * T / 3, from: T } };
+    out.slide = { low: H - T, z0: H - T, z1: H - T + g, d: lfit.d, len: Lo - T + lfit.d - 1, width: lfit.width, play: lfit.c, stop: T - lfit.d,
+      recess: { w: 24, depth: T / 3, len: 16, from: T } };
     out.total = { L: Lo, D: Do, H };
   } else if (lid === 'hinged') {
-    const k = Math.max(2, Math.floor(0.3 * n)), lidH = (k + 0.5) * w, bodyH = H - lidH;
-    if (bodyH < 2.5 * w - 1e-9) return { reject: 'n5' };
-    const hl = HINGES.reduce((a, b) => (Math.abs(b - Lo / 8) < Math.abs(a - Lo / 8) ? b : a));
+    if (n < 7) return { reject: 'n7' };
+    let k = 2, best = Infinity;
+    for (let kk = 2; (kk + 0.5) * w <= H - 2.5 * w + 1e-9; kk++) { const e = Math.abs((kk + 0.5) / n - 1 / 3); if (e < best - 1e-9) { best = e; k = kk; } }
+    const lidH = (k + 0.5) * w, bodyH = H - lidH;
+    if (bodyH < 2.5 * w - 1e-9) return { reject: 'n7' };
+    const band = n - k - 1, bandW = w + s.sawKerf + 1;
+    const fits = HINGES.filter(([, leaf]) => leaf <= T - 2 + 1e-9);
+    if (!fits.length) return { reject: 'thinHinge' };
+    const [hl, leaf] = fits.reduce((a, b) => (Math.abs(b[0] - Lo / 8) < Math.abs(a[0] - Lo / 8) ? b : a));
     const scr = [...HINGE_SCREWS].reverse().find(([dd, l]) => dd <= T / 4 + 1e-9 && l <= Math.min(lidH, bodyH) - 5) || HINGE_SCREWS[0];
-    const from = Math.max(T + w, w + 10);
+    const from = Math.max(hl, T + 5);
     if (2 * (from + hl) > Lo) return { reject: 'small' };
-    out.hinged = { k, lidH, bodyH, cut: bodyH, band: n - k - 1, bandW: w + s.sawKerf + 1, panel: { ...top(H), len: bottom.len, width: fit.width },
-      hinge: { len: hl, leaf: T - 2, from, screw: scr }, grip: { depth: T / 3, len: Lo / 3 } };
+    const tg = top(H);
+    if (!tg) return { reject: 'band' };
+    out.hinged = { k, lidH, bodyH, cut: bodyH, band, bandW, rawCut: band * w + bandW / 2,
+      rawGroove: { fromTop0: tg.recess, fromTop1: tg.recess + g, z0: markH - tg.recess - g, z1: markH - tg.recess },
+      panel: { ...tg, len: bottom.len, width: fit.width }, hinge: { len: hl, leaf, from, screw: scr, wantLen: Lo / 8 }, grip: { depth: T / 3, len: Lo / 3 } };
     out.total = { L: Lo, D: Do, H };
   } else {
     const o = Math.max(4, Math.round(T / 2));
@@ -192,13 +224,15 @@ export function search(s) {
   const list = [], rejects = {};
   for (const H of Hs) for (const Lo of Ls) for (const Do of Ds) {
     if (!(s.lock.L && s.lock.D) && Do > Lo) continue;
+    if (!s.lock.L && (Lo < 12 * s.boards.T || Lo > 30 * s.boards.T)) continue;
     const d = design(s, Lo, Do, H);
-    if (d.reject) { rejects[d.reject] = (rejects[d.reject] || 0) + 1; if (d.reject === 'wallWidth') rejects.need = Math.max(rejects.need || 0, d.need); continue; }
-    list.push({ d, ...outline(s, d), one: onePanel(s, d) });
+    if (d.reject) { rejects[d.reject] = (rejects[d.reject] || 0) + 1; if (d.reject === 'wallWidth') rejects.need = Math.min(rejects.need ?? Infinity, d.need); continue; }
+    const strip = 2 * (Lo + 1) + 2 * (Do + 1) + 3 * s.kerf <= s.boards.L - 2 * s.trim ? 0 : 1;
+    list.push({ d, ...outline(s, d), one: onePanel(s, d), strip });
   }
   const prop = s.goal === 'proportions';
   list.sort(prop
-    ? (a, b) => (a.dev <= 0.05 ? 0 : a.dev) - (b.dev <= 0.05 ? 0 : b.dev) || b.d.n - a.d.n || a.one - b.one || b.vol - a.vol
+    ? (a, b) => (a.dev <= 0.05 ? 0 : a.dev) - (b.dev <= 0.05 ? 0 : b.dev) || a.strip - b.strip || b.d.n - a.d.n || a.one - b.one || b.vol - a.vol
     : (a, b) => b.vol - a.vol || a.dev - b.dev);
   let tries = 0, lastFail = null;
   for (const c of list) {
@@ -225,21 +259,23 @@ export function validate(s) {
 
 function diagnose(s, found) {
   const tips = [], { W, T } = s.boards, rj = found.rejects || {};
+  const need = (min) => { let h = s.lock.H; while (h <= LIMITS.H[1] && fingerLayout(h, T).n < min) h += 10; return h; };
   if (s.lock.H) {
     const fl = fingerLayout(s.lock.H, T);
-    if ((s.lid === 'lift' || s.lid === 'hinged') && fl.ok && fl.n < 5) {
-      let h = s.lock.H; while (h <= LIMITS.H[1] && fingerLayout(h, T).n < 5) h += 10;
-      tips.push(`Pudełko o ściankach ${s.lock.H} mm ma tylko ${fl.n} wczepy na narożnik — za niskie na ${LIDS[s.lid].toLowerCase()}. Najbliższa wysokość z 5 wczepami: ${h} mm.`);
-    }
     if (!fl.ok) tips.push(`Wysokość ${s.lock.H} mm nie ma poprawnego układu wczepów przy desce ${T} mm; spróbuj ${nearestValid(s.lock.H, T, LIMITS.H[0], LIMITS.H[1]).join(' albo ')} mm.`);
+    else if (s.lid === 'lift' && fl.n < 5) tips.push(`Ścianki ${s.lock.H} mm mają tylko ${fl.n} wczepy na narożnik — za niskie na pokrywkę nasadzaną. Najbliższa wysokość z 5 wczepami: ${need(5)} mm.`);
+    else if (s.lid === 'hinged' && fl.n < 7) tips.push(`Ścianki ${s.lock.H} mm mają ${fl.n} wczepów na narożnik — za mało na wieko odcinane (wieko i korpus wyszłyby równe). Najbliższa wysokość z 7 wczepami: ${need(7)} mm.`);
   }
   if (rj.wallWidth) tips.push(`Ścianki są z jednej deski: potrzeba deski co najmniej ${Math.ceil(rj.need || 0)} mm szerokiej (masz ${W} mm) albo niższych ścianek.`);
+  if (rj.band) tips.push(`Pas dolnego wczepu jest za wąski na rowek dna (trzeba 3 mm drewna do linii wczepu). Wyższe ścianki albo grubsza deska.`);
   if (rj.thin) tips.push(`Deska ${T} mm jest za cienka na rowek przy tej szerokości dna — dno wypadłoby z rowka przy pracy drewna. Węższe pudełko albo grubsza deska.`);
-  if (rj.thinHinge) tips.push('Wieko na zawiasach wymaga deski co najmniej 8 mm.');
-  if (found.lastFail === 'area' || !tips.length) {
-    const need = Math.ceil(((s.lock.L || 200) * 2 + (s.lock.D || 120) * 2) * (s.lock.H || 80) * 2.6 / (W * (s.boards.L - 2 * s.trim)));
-    tips.push(`Za mało deski: potrzeba około ${Math.max(need, s.boards.N + 1)} desek ${s.boards.L}×${W} mm albo mniejszego pudełka.`);
+  if (rj.thinHinge) tips.push(`Przy desce ${T} mm nie ma zawiasu o skrzydełku ≤ ${T - 2} mm.`);
+  if (rj.small) tips.push('Pudełko jest za małe na to zamknięcie (zawiasy albo wnętrze).');
+  if (found.lastFail === 'area' || (!tips.length && !found.empty)) {
+    const est = Math.ceil(((s.lock.L || 200) * 2 + (s.lock.D || 120) * 2) * (s.lock.H || 80) * 2.6 / (W * (s.boards.L - 2 * s.trim)));
+    tips.push(`Za mało deski: potrzeba około ${Math.max(est, s.boards.N + 1)} desek ${s.boards.L}×${W} mm albo mniejszego pudełka.`);
   }
+  if (!tips.length) tips.push('Z tymi ustawieniami nie wychodzi żadne pudełko. Zdejmij blokady wymiarów albo zmień deskę.');
   return tips;
 }
 
@@ -270,8 +306,8 @@ export function build(state) {
   const T = d.T;
   const chk = checks(s, d);
   const warnings = chk.filter((c) => !c.ok).map((c) => `${c.name}: ${fmt1(c.value)} mm przy granicy ${fmt1(c.limit)} mm. ${c.hint}`);
-  if (d.Lo > 30 * T) warnings.push(`Pudełko ${d.Lo} mm z deski ${T} mm wygląda wiotko (długość ponad 30 × grubość).`);
-  if (d.Lo < 12 * T) warnings.push(`Pudełko ${d.Lo} mm z deski ${T} mm wygląda ciężko (długość poniżej 12 × grubość).`);
+  if (s.lock.L && d.Lo > 30 * T) warnings.push(`Pudełko ${d.Lo} mm z deski ${T} mm wygląda wiotko (długość ponad 30 × grubość).`);
+  if (s.lock.L && d.Lo < 12 * T) warnings.push(`Pudełko ${d.Lo} mm z deski ${T} mm wygląda ciężko (długość poniżej 12 × grubość).`);
   const notes = [];
   if (s.goal === 'proportions' && found.dev > 0.05) notes.push(`Proporcje obrysu poza zakresem: głębokość ${(d.total.D / d.total.L).toFixed(2).replace('.', ',')} zamiast 0,6, wysokość ${(d.total.H / d.total.L).toFixed(2).replace('.', ',')} zamiast 0,4 długości.`);
   if (!lay.oneStrip) notes.push('Ścianki nie mieszczą się na jednym pasie deski — słoje nie obiegną narożników.');
@@ -294,7 +330,7 @@ function hardware(s, d) {
   const out = [{ item: 'Klej do drewna o czasie otwartym ≥ 15 min', size: '', qty: 1, note: 'tylko wczepy i listewki; dna i płyt nie klej' }];
   if (d.lid === 'hinged') {
     const h = d.hinged.hinge;
-    out.unshift({ item: 'Zawias wpuszczany z ogranicznikiem 95°, mosiądz', size: `${h.len} mm, skrzydełko ≤ ${h.leaf} mm`, qty: 2, note: `zewnętrzny koniec ${fmt1(h.from)} mm od końca pudełka` },
+    out.unshift({ item: 'Zawias wpuszczany z ogranicznikiem 95°, mosiądz', size: `${h.len} mm, skrzydełko ok. ${fmt1(h.leaf)} mm`, qty: 2, note: `zewnętrzny koniec ${fmt1(h.from)} mm od końca pudełka${h.len < h.wantLen - 5 ? '; krótszy niż L/8, bo dłuższy ma za szerokie skrzydełko' : ''}` },
       { item: 'Wkręt mosiężny do zawiasów', size: `${String(h.screw[0]).replace('.', ',')}×${h.screw[1]}`, qty: 8, note: 'nawiercić; nacięcia łbów wzdłuż osi zawiasu' });
   }
   out.push({ item: 'Olej albo olejowosk', size: 'zewnątrz', qty: 1, note: 'płyty wykończ przed montażem' }, { item: 'Szelak albo wosk', size: 'środek', qty: 1, note: 'olej w zamkniętym pudełku pachnie' });
@@ -324,13 +360,16 @@ function plan(s, d, res) {
   const T = d.T, f = fmt1, steps = [];
   steps.push(['Drewno', `Deska wystrugana na ${T} mm, aklimatyzowana w warsztacie. Ścianki tnij z jednego pasa w kolejności przód, bok, tył, bok, żeby słoje obiegły narożniki.`]);
   steps.push(['Narożnik próbny', `Na odpadzie: ${d.n} wczepów po ${f(d.w)} mm, głębokość ${f(T + 0.5)} mm. Przyłóż szablon 1:1 z PDF, trasuj nożem.`]);
-  steps.push(['Rowki', `Rowki ${d.g} mm szerokie i ${f(d.bottom.d)} mm głębokie przed piłowaniem wczepów. Rowek dna ${f(d.bottom.z0)}–${f(d.bottom.z1)} mm nad dołem: przelotowy w bokach, w przodzie i tyle zatrzymany ${f(T / 2)} mm przed końcem — końce wybierz dłutem na ok. 20 mm, potem strugnica krótkimi pociągnięciami.${d.lid === 'slide' ? ` Rowki przykrywki w przodzie i tyle na ${f(d.slide.z0)}–${f(d.slide.z1)} mm: przelotowe przy niskim boku, zatrzymane przy wysokim; w wysokim boku rowek na tej samej wysokości.` : ''}${d.lid === 'lift' ? ` Rowek płyty w obrzeżu: przelotowy w przodzie i tyle, zatrzymany w bokach.` : ''}${d.lid === 'hinged' ? ' Rowek płyty wieka w górnym pasie jak rowek dna.' : ''}`]);
+  const rimG = d.lid === 'lift' ? ` Rowek płyty w obrzeżu ${f(d.rim.panel.z0)}–${f(d.rim.panel.z1)} mm od dołu obrzeża (${f(d.rim.panel.recess)}–${f(d.rim.panel.recess + d.g)} mm od górnej krawędzi): przelotowy w przodzie i tyle, zatrzymany ${f(d.bottom.stop)} mm przed końcem w bokach.` : '';
+  const hingG = d.lid === 'hinged' ? ` Rowek płyty wieka na surowych ściankach ${f(d.hinged.rawGroove.z0)}–${f(d.hinged.rawGroove.z1)} mm od dołu, czyli ${f(d.hinged.rawGroove.fromTop0)}–${f(d.hinged.rawGroove.fromTop1)} mm od górnej krawędzi, przelotowy w bokach i zatrzymany ${f(d.bottom.stop)} mm przed końcem w przodzie i tyle.` : '';
+  const slideG = d.lid === 'slide' ? ` Rowki przykrywki w przodzie i tyle na ${f(d.slide.z0)}–${f(d.slide.z1)} mm: przelotowe przy niskim boku, zatrzymane ${f(d.slide.stop)} mm przed końcem przy wysokim; w wysokim boku rowek na tej samej wysokości.` : '';
+  steps.push(['Rowki', `Rowki ${d.g} mm szerokie i ${f(d.bottom.d)} mm głębokie przed piłowaniem wczepów. Rowek dna ${f(d.bottom.z0)}–${f(d.bottom.z1)} mm nad dołem: przelotowy w bokach, w przodzie i tyle zatrzymany ${f(d.bottom.stop)} mm przed końcem (T − głębokość) — końce wybierz dłutem na ok. 20 mm, potem strugnica krótkimi pociągnięciami.${slideG}${rimG}${hingG}`]);
   steps.push(['Wczepy', `Trasuj od dołu ścianek${d.lid === 'hinged' ? `, pas ${d.hinged.band + 1} poszerzony do ${f(d.hinged.bandW)} mm (rzaz i struganie)` : ''}. Przód i tył trzymają skrajne wczepy korpusu. Razem ${res.fingers.total} wczepów (ok. ${Math.round(res.fingers.hours)} h).`]);
-  steps.push(['Płyty', `Płyty z jednej deski albo z równych pasów. Wręb na pióro ${d.g} mm; dno z wrębem od góry. Luz w poprzek słojów ${f(d.bottom.play)} mm. Wykończ płyty przed montażem, żeby po skurczu nie wyszedł surowy pas.`]);
+  steps.push(['Płyty', `Płyty z jednej deski albo z równych pasów. Pióro ${d.g} mm grube i ${f(d.bottom.d)} mm długie; ramiona wrębu ${f(d.bottom.play / 2)} mm od ścianek z każdej strony (luz w poprzek słojów ${f(d.bottom.play)} mm), 0,5 mm wzdłuż. Dno z wrębem od góry. Wykończ płyty przed montażem, żeby po skurczu nie wyszedł surowy pas.`]);
   steps.push(['Klejenie', 'Montaż na sucho, klej tylko na wczepach, dno pływa w rowku bez kleju. Sprawdź przekątne, po wyschnięciu zestrugaj wczepy na równo.']);
   if (d.lid === 'lift') steps.push(['Pokrywka', `Obrzeże ${f(d.rim.h)} mm z 3 wczepami, skrajne trzymają boki. Płyta cofnięta o ${f(d.rim.panel.recess)} mm pod krawędź. Listewki ${f(d.lip.t)} × ${f(d.lip.h)} mm wklej od środka na górnym pasie, wystają 6 mm; na wystającej części wręb 0,5 mm i fazka 1 mm.`]);
-  if (d.lid === 'slide') steps.push(['Przykrywka wsuwana', `Płyta ${f(d.slide.len)} × ${f(d.slide.width)} mm, słoje wzdłuż, wrąb od góry, pióro przy spodzie, wierzch równo ze ściankami. Niski bok ${f(d.slide.low)} mm. Wnęka na palec ${d.slide.recess.w} × ${f(d.slide.recess.len)} mm, ${f(d.slide.recess.depth)} mm głęboka, ${f(d.slide.recess.from)} mm od końca, żłobikiem.`]);
-  if (d.lid === 'hinged') steps.push(['Odcinanie wieka', `Sklej zamknięte pudełko (${f(d.markH)} mm). Trasuj linię cięcia dookoła w środku pasa ${d.hinged.band + 1}, ${f(d.hinged.cut)} mm nad dołem po struganiu. Tnij od narożników, przy trzecim boku włóż kliny w rzaz. Struguj obie krawędzie od narożnika do środka, żeby nie wyrwać czół wczepów. Wpuść zawiasy ${d.hinged.hinge.len} mm z ogranicznikiem 95°, ${f(d.hinged.hinge.from)} mm od końców. Fazka chwytu 45° ${f(d.hinged.grip.depth)} mm na środkowej ⅓ przodu wieka.`]);
+  if (d.lid === 'slide') steps.push(['Przykrywka wsuwana', `Płyta ${f(d.slide.len)} × ${f(d.slide.width)} mm, słoje wzdłuż, wrąb od góry, pióro przy spodzie, wierzch równo ze ściankami. Niski bok ${f(d.slide.low)} mm. Wnęka na palec ${d.slide.recess.w} × ${f(d.slide.recess.len)} mm, ${f(d.slide.recess.depth)} mm głęboka, ${f(d.slide.recess.from)} mm od końca, żłobikiem, z dnem spadającym ku końcowi.`]);
+  if (d.lid === 'hinged') steps.push(['Odcinanie wieka', `Sklej zamknięte pudełko (${f(d.markH)} mm). Trasuj linię cięcia dookoła w środku pasa ${d.hinged.band + 1}, ${f(d.hinged.rawCut)} mm od dołu surowego pudełka (korpus po struganiu ${f(d.hinged.bodyH)} mm, wieko ${f(d.hinged.lidH)} mm). Tnij od narożników, przy trzecim boku włóż kliny w rzaz. Struguj obie krawędzie od narożnika do środka, żeby nie wyrwać czół wczepów. Wpuść zawiasy ${d.hinged.hinge.len} mm z ogranicznikiem 95°, ${f(d.hinged.hinge.from)} mm od końców. Fazka chwytu 45° ${f(d.hinged.grip.depth)} mm na środkowej ⅓ przodu wieka.`]);
   if (d.lid === 'flat') steps.push(['Przykrywka płaska', `Płyta ${f(d.flat.len)} × ${f(d.flat.width)} mm (wysięg ${d.flat.over} mm). Listewki ${T} × ${f(d.flat.batten.w)} × ${f(d.flat.batten.len)} mm w poprzek słojów, zewnętrzne lica 1 mm od boków od środka, klej tylko w środkowej ⅓.`]);
   steps.push(['Krawędzie i wykończenie', `Jedna fazka ${T <= 12 ? 1 : 1.5} mm na krawędziach, 0,5 mm wzdłuż styku zamknięcia, bez fazek na wylotach rowków. Na zewnątrz olej albo olejowosk, w środku szelak albo wosk.`]);
   return steps;
@@ -339,7 +378,8 @@ function plan(s, d, res) {
 /** Finger layouts at 1:1 for the PDF: band edges from the bottom of each piece. */
 function templates(s, d) {
   const band = (n, w, widen) => Array.from({ length: n }, (_, i) => (widen && widen.i === i ? widen.w : w));
-  const out = [{ name: 'Ścianki', bands: band(d.n, d.w, d.lid === 'hinged' ? { i: d.hinged.band, w: d.hinged.bandW } : null), depth: d.T + 0.5, frontHolds: 'even' }];
+  const out = [{ name: 'Ścianki', bands: band(d.n, d.w, d.lid === 'hinged' ? { i: d.hinged.band, w: d.hinged.bandW } : null), depth: d.T + 0.5, frontHolds: 'even',
+    cut: d.lid === 'hinged' ? d.hinged.rawCut : null }];
   if (d.lid === 'lift') out.push({ name: 'Obrzeże pokrywki', bands: band(3, d.w), depth: d.T + 0.5, frontHolds: 'odd' });
   return out;
 }
@@ -368,14 +408,13 @@ export function geometry(s, d) {
   };
   const { Lo, Do, H, w, g } = d;
   // recessed panel in a rim: tongue at the top face in the groove, body below
-  const recessed = (zTop, extra) => {
-    box(T - d.bottom.d + 0.5, Lo - T + d.bottom.d - 0.5, T - d.bottom.d + 0.5, Do - T + d.bottom.d - 0.5, zTop - g, zTop, 'panel', extra);
-    box(T, Lo - T, T, Do - T, zTop - T, zTop - g, 'panel', extra);
-  };
+  // panels: tongue d long, shoulders c/2 clear of the front and back, 0.5 mm along the grain
+  const b = d.bottom, c2 = b.play / 2;
+  const tongue = (z0, z1, kind, extra) => box(T - b.d + 0.5, Lo - T + b.d - 0.5, T - b.d + c2, Do - T + b.d - c2, z0, z1, kind, extra);
+  const body = (z0, z1, kind, extra) => box(T + 0.5, Lo - T - 0.5, T + c2, Do - T - c2, z0, z1, kind, extra);
+  const recessed = (zTop, extra) => { tongue(zTop - g, zTop, 'panel', extra); body(zTop - T, zTop - g, 'panel', extra); };
   // bottom panel: rebated from the top, tongue at the underside
-  const b = d.bottom;
-  box(T - b.d + 0.5, Lo - T + b.d - 0.5, T - b.d + 0.5, Do - T + b.d - 0.5, b.z0, b.z1, 'bottom');
-  box(T, Lo - T, T, Do - T, b.z1, b.z0 + T, 'bottom');
+  tongue(b.z0, b.z1, 'bottom'); body(b.z1, b.z0 + T, 'bottom');
   let lidMotion;
   if (d.lid === 'lift') {
     frame(0, Lo, 0, Do, 0, H, d.n);
@@ -384,7 +423,7 @@ export function geometry(s, d) {
     box(T, T + lip.t, T + lip.t, Do - T - lip.t, H - w, H + 6, 'lip'); box(Lo - T - lip.t, Lo - T, T + lip.t, Do - T - lip.t, H - w, H + 6, 'lip');
     const n0 = B.length;
     frame(0, Lo, 0, Do, H, H + d.rim.h, 3, { flip: true, extra: { lid: true } });
-    recessed(H + d.rim.h - d.rim.panel.recess, { lid: true });
+    recessed(H + d.rim.panel.z1, { lid: true });
     lidMotion = { kind: 'lift', dz: d.rim.h + 60, first: n0 };
   } else if (d.lid === 'slide') {
     frame(0, Lo, 0, Do, 0, H, d.n, { lowEnd: 'L', endTop: d.slide.low });
@@ -397,10 +436,11 @@ export function geometry(s, d) {
     const cut = d.hinged.cut;
     frame(0, Lo, 0, Do, 0, H, d.n, { hi: cut - 0.5 });
     frame(0, Lo, 0, Do, 0, H, d.n, { lo: cut + 0.5, extra: { lid: true } });
-    recessed(H - d.hinged.panel.recess, { lid: true });
-    box(Lo / 3, (2 * Lo) / 3, -0.4, 0.6, cut + 0.5, cut + 0.5 + d.hinged.grip.depth, 'grip', { lid: true });
+    recessed(d.hinged.panel.z1, { lid: true });
+    // grip chamfer and mortised hinges stay inside the outline
+    box(Lo / 3, (2 * Lo) / 3, 0, 0.6, cut + 0.5, cut + 0.5 + d.hinged.grip.depth, 'grip', { lid: true });
     const h = d.hinged.hinge;
-    for (const x of [h.from + h.len / 2, Lo - h.from - h.len / 2]) box(x - h.len / 2, x + h.len / 2, Do, Do + 1.2, cut - 8, cut + 8, 'hinge', { hingeX: x });
+    for (const x of [h.from + h.len / 2, Lo - h.from - h.len / 2]) box(x - h.len / 2, x + h.len / 2, Do - 1.2, Do, cut - h.leaf, cut + h.leaf, 'hinge', { hingeX: x });
     lidMotion = { kind: 'hinge', y: Do, z: cut, deg: 95 };
   } else {
     frame(0, Lo, 0, Do, 0, H, d.n);
