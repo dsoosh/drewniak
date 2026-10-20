@@ -2,16 +2,15 @@
 
 ## Purpose
 Zestawienie zamówienia, lista cięć, rozkroje i PDF konfiguratora szkieletu — wszystko, co trzeba zabrać do składu drewna i na budowę.
+
 ## Requirements
+
 ### Requirement: Order summary first
 The page SHALL start the results with an order summary: number of stock pieces per timber
 section, wall and floor sheets, covering and clear sheets, ridge caps for gable roofs,
 covering nails, ground anchors with bitumen pads, beam hangers, plate anchors, corner
 straps, rafter connectors, ridge gussets (gable) or top-edge flashing (mono-pitch), OSB
-fasteners and end-grain preservative. The summary SHALL include a cost estimate with default
-2026 prices (100×100 × 6.5 m 189 zł, 45×95 × 6 m 69 zł, 50×50 × 5.4 m 22 zł, OSB by thickness,
-corrugated sheet about 45 zł, ground anchor 120–150 zł) that the user can override: a total,
-the share of each priced item, the anchor price range, and a list of items not included.
+fasteners and end-grain preservative.
 
 #### Scenario: Default prices
 - **WHEN** the default shed is shown without any price edits
@@ -51,3 +50,12 @@ sheets, and the summary SHALL state the actual birdsmouth depth of the selected 
 - **WHEN** the 70 m² house is exported
 - **THEN** the order lists bracing strap, gable struts and the birdsmouth of the 195 mm rafter
 
+### Requirement: Cost estimate with default prices
+The summary SHALL include a cost estimate with default 2026 prices (100×100 × 6.5 m 189 zł,
+45×95 × 6 m 69 zł, 50×50 × 5.4 m 22 zł, OSB by thickness, corrugated sheet about 45 zł, ground
+anchor 120–150 zł) that the user can override: a total, the share of each priced item, the
+anchor price range, and a list of items not included.
+
+#### Scenario: Price typed in
+- **WHEN** the user types a price for 45×95 × 6 m
+- **THEN** the total and the share of 45×95 use that price, and the list of items not included stays shown

@@ -1,7 +1,7 @@
 # example-projects Specification
 
 ## Purpose
-TBD - created by archiving change examples-anchors-visualisation. Update Purpose after archive.
+Przykładowe projekty konfiguratora szkieletu: lista gotowych budynków do wczytania i zasada, że każdy z nich jest spójny z regułami konstrukcji generatora.
 ## Requirements
 ### Requirement: Example projects can be loaded
 The page SHALL offer a list of example projects — the built shed 3.1 × 2.5 m, a tool shed,

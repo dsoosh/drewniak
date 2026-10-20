@@ -23,8 +23,9 @@ Wspólne rzeczy (rozkrój, banan do skali, PDF) bierzesz z `szkielet/js/`, nie k
    asercje na liczbę elementów, brak NaN, brak ostrzeżeń w konfiguracji domyślnej.
 5. **Widoki:** model 3D, rzuty z wymiarami, lista cięć, rozkrój, materiały, PDF.
    Na każdym rysunku i w 3D stoi banan do skali (patrz zasady repo).
-6. **Recenzja mistrza.** Agent `mistrz-ciesielski` na gotowej zmianie; jego wady
-   konstrukcyjne poprawiasz przed archiwizacją.
+6. **Recenzja mistrzów.** Agent `mistrz-ciesielski` (konstrukcja) i `mistrz-rzemieslnik`
+   (forma) na gotowej zmianie; ich wady poprawiasz przed archiwizacją, a przy sporze
+   formy z konstrukcją wygrywa konstrukcja.
 7. **Strona główna:** dopisz kartę konstrukcji w `index.html`.
 8. `/opsx:apply`, potem `/opsx:archive` dopiero gdy wszystkie zadania odhaczone i
    `openspec validate --strict` przechodzi.

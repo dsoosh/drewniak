@@ -195,7 +195,7 @@ function extrude(sh) {
   return geo;
 }
 
-function bananaMesh(x, y, z) {
+export function bananaMesh(x, y, z) {
   const g = new THREE.Group();
   const curve = new THREE.CatmullRomCurve3([[0, 0, 40], [50, 18, 22], [100, 22, 18], [150, 12, 24], [185, -8, 46]].map((p) => new THREE.Vector3(...p)));
   const tube = new THREE.TubeGeometry(curve, 40, 17, 10, false);
