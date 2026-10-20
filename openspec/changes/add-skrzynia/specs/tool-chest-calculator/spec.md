@@ -113,7 +113,7 @@ on k·w or (k + ½)·w measured from the bottom of the walls.
 
 #### Scenario: Default grid
 - **WHEN** H is 400 mm and T is 20 mm (w = 26.7 mm)
-- **THEN** the skirt top is at 3w = 80 mm, the apron edge at 13w = 346.7 mm and the wall seam at 7.5w = 200 mm
+- **THEN** the skirt top is at 3w = 80 mm, the apron edge at 13w = 346.7 mm, and with 200 mm boards the wall is glued from three strips (jointing takes 2 mm per glued edge) with seams at 44 mm, hidden behind the skirt, and at 9w = 240 mm
 
 ### Requirement: Glue seams sit on the grid
 A wall glue seam SHALL lie on a finger boundary, or at least w/4 away from every boundary,
