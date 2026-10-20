@@ -16,7 +16,8 @@ nowego ostrzeżenia. Przebieg zawsze ten sam:
 2. `openspec validate <nazwa> --strict` przechodzi, zanim zaczniesz kod.
 3. `/opsx:apply` — implementacja zgodnie z `tasks.md`, odhaczanie zadań na bieżąco.
 4. `/opsx:archive` — dopiero gdy wszystkie zadania są zrobione, testy przechodzą, a
-   zmiana dotykająca geometrii przeszła recenzję agenta `mistrz-ciesielski`.
+   zmiana dotykająca geometrii przeszła recenzję agenta `mistrz-ciesielski`, a zmiana
+   wyglądu konstrukcji — recenzję agenta `mistrz-rzemieslnik`.
 
 Specyfikacje obowiązującego stanu leżą w `openspec/specs/`. Jeśli kod i spec się
 rozjeżdżają, najpierw zmiana OpenSpec, potem kod.
@@ -27,6 +28,9 @@ rozjeżdżają, najpierw zmiana OpenSpec, potem kod.
   (`.github/skills/ciesielka-i-stolarka/SKILL.md`). Generator nie może proponować
   konstrukcji, która się rozjedzie: łączniki na ścinanie, styki nad podporami, każda
   krawędź płyty podparta, nadproża nad otworami, ściągi w dachu dwuspadowym.
+- Forma: lekko nowoczesna, oparta na tradycji. Ozdobą jest połączenie (równe, widoczne
+  wczepy); żadnych frezowanych profili, ornamentów, rzeźby ani aplikacji. Krawędzie
+  złamane fazką albo promieniem 1–2 mm.
 - Na każdym rysunku i w modelu 3D stoi **banan do skali**. Banan nie pojawia się w
   opisach, legendach, liście materiałów ani w tekstach strony, i nie ma przełącznika,
   który by go ukrywał.
@@ -51,3 +55,5 @@ rozjeżdżają, najpierw zmiana OpenSpec, potem kod.
 - `wydanie` — testy, push, GitHub Pages, notatka w vaulcie.
 - `ciesielka-i-stolarka` — zasady konstrukcyjne i źródła.
 - Agent `mistrz-ciesielski` — recenzja konstrukcji przed archiwizacją zmiany.
+- Agent `mistrz-rzemieslnik` — recenzja formy: proporcje, podziały, krawędzie, okucia.
+  Lekko nowoczesnie, na tradycji; ozdobą jest połączenie, bez profili i ornamentów.

@@ -98,7 +98,14 @@ słupki, więc obciążenie z góry musi obejść otwór przez nadproże i słup
 - Na zewnątrz łączniki ocynkowane ogniowo albo nierdzewne (klasa korozyjności C3/C4 przy wodzie).
 - Okucia (kątowniki, wieszaki, łączniki krokwiowe) przybijać gwoździami do okuć, nie
   wkrętami do płyt — nośność połączenia zależy od łącznika.
-- Długość gwoździa ≈ 2,5–3 × grubość przybijanego elementu; przy końcach nawiercić.
+- Długość gwoździa ≈ 2,5–3 × grubość przybijanego elementu, gdy przybijasz do grubego
+  elementu (belka, słupek); przy końcach nawiercić.
+- Gdy łączysz dwa cienkie elementy (deski 12–25 mm, meble, skrzynie): łącznik najwyżej
+  suma grubości minus 3 mm, liczony osobno dla każdego połączenia, żeby nie wyszedł na
+  wylot. Tradycyjnie można przybić na wylot i zagiąć gwóźdź w poprzek włókien.
+- Gwóźdź w drewnie czołowym trzyma słabo (ok. ⅓ nośności) i rozłupuje cienką deskę: tylko
+  na skos i z nawierceniem, i nigdy jako jedyne podparcie. Oparcie (listwa nośna) jest
+  lepsze niż zawieszenie na gwoździach.
 
 ## 7. Obciążenia do wstępnego doboru
 
@@ -119,8 +126,19 @@ Dla konstrukcji z desek robionych **wyłącznie narzędziami ręcznymi**:
 - Długość w liście cięć = wzdłuż słojów; krótkie słoje w uchwytach i przy otworach to wada.
 - Szerokie elementy pracują w poprzek słojów (2–3%); nie klej ich krzyżowo.
 - Cięcie wzdłuż to najdroższa operacja: projektuj pod szerokość deski i licz cięcia wzdłuż.
-- Dno, blat, półka z jednego kawałka; gdy szersze od deski — kawałki pełnej szerokości
-  ucięte w poprzek i sklejone (reszta ≥ 40 mm).
+- Blat i półka z jednego kawałka; gdy szersze od deski — kawałki pełnej szerokości
+  ucięte w poprzek i sklejone (reszta ≥ 40 mm), 2 mm zapasu na fugowanie każdej klejonej
+  krawędzi.
+- Dno małej skrzynki (do ok. 300 mm w poprzek słojów) może być sklejone z kawałków. Dno
+  większej skrzyni z desek nigdy nie jest klejone w płytę: deski leżą na listwach nośnych
+  ze szczelinami 1% szerokości deski (min. 2 mm) i luzem 3 mm przy ścianach.
+- Wieko i inne szerokie płyty w ramie z fartuchem: luz między fartuchem a korpusem 3 mm
+  plus praca drewna w poprzek słojów (≈ 1% szerokości) po stronie, w którą wieko pracuje.
+- Grubość T w obliczeniach to grubość po struganiu; drewno aklimatyzowane w warsztacie
+  do 8–12% przed trasowaniem.
+- Wczepy proste: liczba nieparzysta, szerokość od T do 1,5T, przód i tył trzymają
+  skrajne wczepy u góry i u dołu. Duże klejenia wczepów: klej o czasie otwartym ≥ 15 min,
+  montaż na sucho, kontrola przekątnych.
 - Długości cięć okrągłe, co 10 mm.
 - Skala trudności 1–5: najtrudniejsza technika, +1 gdy ≥ 4 techniki na poziomie ≥ 2.
 

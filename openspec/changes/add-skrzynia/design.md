@@ -12,90 +12,114 @@ skrzynia idzie drogą szkieletu, nie skrzynki.
 **Goals:**
 - Czysty `build(state)` w `skrzynia/js/build.js`: wymiary, elementy, rozkrój, kontrole,
   ostrzeżenia, okucia, plan pracy. Testowany w `tests/skrzynia.test.js`.
-- Konstrukcja, która przenosi ciężar narzędzi przy podnoszeniu za uchwyty.
+- Konstrukcja, która przenosi ciężar narzędzi przy podnoszeniu za uchwyty, przeżyje
+  postawienie z rozmachem i nie zakleszczy się, gdy drewno popracuje.
+- Forma według `mistrz-rzemieslnik`: ozdobą są wczepy, bez profili i ornamentów.
 
 **Non-Goals:**
 - Przepisywanie skrzynki na moduły ani wspólny rozkrój dla obu stron. Skrzynka zostaje
   bez zmian. Wspólny moduł to osobna zmiana.
-- Jaskółki, połączenia na czopy, płyciny w wieku, zamki i okucia narożne.
+- Jaskółki, czopy, płyciny w wieku, zamki i okucia narożne.
 - Dobór z długości handlowych. Liczymy tylko z desek, które użytkownik ma.
 
 ## Decisions
 
 ### Droga obciążenia
 
-Przy podnoszeniu za uchwyty: narzędzia → tace → prowadnice → ściany przód/tył; narzędzia
-na dnie → deski dna (przęsło przód–tył, wzdłuż słojów) → gwoździe wbite przez przód i tył
-w czoła desek dna, które pracują **na ścinanie** → ściany przód/tył → wczepy w narożnikach
-(klej na bocznych powierzchniach wczepów, long-grain do long-grain) → boki → klocki uchwytów (klej
-na długich włóknach, wkręty od środka na ścinanie) → dłonie.
+Przy podnoszeniu za uchwyty:
+- narzędzia na tacach → tace → prowadnice (klej long-grain + wkręty na ścinanie) → przód
+  i tył;
+- narzędzia na dnie → deski dna (przęsło przód–tył, wzdłuż słojów) **leżą** na listwach
+  nośnych → listwy (klej long-grain + wkręty na ścinanie) → przód i tył;
+- przód i tył → wczepy w narożnikach (klej na bocznych powierzchniach wczepów, long-grain
+  do long-grain) → boki → uchwyty (klej long-grain i wkręty od środka albo śruby M6 na
+  wylot z klockiem podkładowym) → dłonie.
 
-Przy stawianiu na podłodze: dno i ściany → cokół (klej long-grain i gwoździe, narożniki cokołu na wczepy) → podłoga.
-Cokół zasłania czoła dna i trzyma dolne krawędzie ścian.
+Przy stawianiu: ściany → cokół (klej long-grain, gwoździe ≤ 2T − 3 mm, narożniki na
+wczepy) → podłoga. Cokół wystaje 4 mm pod korpus, więc dno i czoła ścian nie leżą na
+betonie i nie podciągają wilgoci.
 
-Żaden łącznik na tej drodze nie pracuje na wyrywanie. Dlatego odrzucamy dno przybite od
-spodu (gwoździe na wyrywanie pod ciężarem narzędzi) i uchwyty przykręcone przez bok
-w drewno czołowe.
+Żaden łącznik nie pracuje na wyrywanie i żaden gwóźdź nie niesie ciężaru w drewnie
+czołowym. Gwoździe dna wbite z góry w listwy tylko ustalają deski.
 
-### Wczepy proste w narożnikach
+### Wczepy proste
 
-Wczepy proste (finger joint) zamiast wrębów: każdy wczep daje dwie powierzchnie
-klejenia wzdłuż włókien, więc narożnik trzyma sam klej, bez gwoździ w drewnie czołowym.
-Głębokość = grubość deski + 0,5 mm na zestruganie. Liczba wczepów nieparzysta, szerokość
-1–1,5 × T: `n` = najmniejsza nieparzysta liczba, przy której `H / n ≤ 1,5 T`. Wtedy przód
-i tył trzymają skrajne wczepy u góry i u dołu, a boki nie mają krótkiego drewna przy
-krawędzi. Wczepy przodu i tyłu zakładają się na boki, więc przód i tył mają długość
-zewnętrzną, a boki głębokość zewnętrzną. Wnętrze to wymiar zewnętrzny minus 2T.
+Każdy wczep daje dwie powierzchnie klejenia wzdłuż włókien, więc narożnik trzyma sam klej.
+Głębokość T + 0,5 mm na zestruganie. Reguła: najmniejsze nieparzyste n ≥ 3, przy którym
+H / n ≤ 1,5T, i wynik musi być ≥ T. Nie każda wysokość ma taki układ (np. 91–99 mm przy
+T = 20: n = 3 daje > 30 mm, n = 5 daje < 20 mm), więc szukanie wymiarów pomija takie
+wysokości, a zablokowaną wysokość bez układu odrzucamy z podpowiedzią najbliższych.
+Przód i tył trzymają skrajne wczepy, więc mają długość zewnętrzną, a boki głębokość
+zewnętrzną. Wnętrze = wymiar zewnętrzny − 2T.
 
-Ściana klejona z pasów: najpierw klejenie i wyrównanie, potem trasowanie wczepów. Układ
-zależy tylko od wysokości ściany, szew może wypaść w środku wczepu, bo jest już pełnym
-złączem wzdłuż włókien. Każdy narożnik ma wczepy według tej samej reguły: korpus, cokół (80 mm → 3), fartuch
-wieka (60 mm → 3, dwa narożniki z przodu) i tace (100 mm z desek 12 mm → 7). Połączenia,
-które nie są narożnikami, zostają inne: dno przybite przez ściany, listwy wieka na
-wkrętach w otworach podłużnych, prowadnice i uchwyty klejone wzdłuż włókien i przykręcone,
-przegródka tacy we wpuście.
+Ściana klejona z pasów: najpierw klejenie i fugowanie (2 mm zapasu na krawędź), potem
+trasowanie. Szew może wypaść w środku wczepu, bo jest już pełnym złączem wzdłuż włókien.
 
-Wczepy robi się piłą grzbietnicą i dłutem, z szablonu albo trasowane cyrklem. To
-trudniejsze niż wręby: poziom trudności 4, bo 40 i więcej wczepów musi pasować na sucho.
-Plan pracy każe zrobić najpierw jeden narożnik próbny na odpadzie.
+Domyślnie (T = 20, H = 400, jedna taca): 60 wczepów korpusu, 12 cokołu, 28 tacy i 6
+fartucha, razem 106. Klejenie korpusu naraz przekracza czas otwarty zwykłego PVA: klej o
+czasie otwartym ≥ 15 min, montaż na sucho, ściski z przekładkami, kontrola przekątnych.
+Szacunek czasu: 10 min na wczep z trasowaniem i dopasowaniem, pokazywany na stronie.
 
 ### Wieko
 
-Deski wieka wzdłuż długości, sklejone na krawędziach albo luźne. Dwie listwy poprzeczne
-przykręcone przez otwory podłużne, bez kleju, bo wieko pracuje w poprzek słojów o 2–3%.
-Fartuch z trzech stron, narożniki na wczepy jak w skrzyni. Przedni fartuch ma słoje
-równolegle do wieka, więc jest przyklejony i przybity do jego krawędzi. Boczne fartuchy
-leżą w poprzek słojów wieka: klej tylko na 50 mm od przodu, dalej wkręty przez otwory
-podłużne, żeby wieko mogło pracować do tyłu. Zawiasy pasowe na tylnej krawędzi. Ogranicznik (łańcuszek albo linka) chroni zawiasy przed
-wyrwaniem wkrętów przy przewróceniu wieka do tyłu.
+- Deski wzdłuż długości, sklejone (z klejeniem) albo na zakładkę (bez klejenia).
+- Fartuch z przodu i po bokach, wysokość mierzona od wierzchu wieka.
+- Luz: 3 mm na bokach, z przodu 3 mm + 1% głębokości wieka. Tył trzymają zawiasy, więc
+  cała praca wieka w poprzek słojów idzie do przodu.
+- Fartuch przedni ma słoje równolegle do wieka: klej i gwoździe. Boczne fartuchy leżą w
+  poprzek słojów wieka: bez kleju, wczep z fartuchem przednim i 2–3 wkręty 5×60 w czoło
+  wieka przez otwory podłużne ≥ 1,5% głębokości wieka.
+- Listwy: wkręt stały przy przodzie (tam, gdzie fartuch przedni), otwory podłużne do tyłu.
+- Zawiasy wpuszczane, wkręty ≤ T − 3 mm. Łańcuszek do boku, wkręty na ścinanie.
+
+### Tace
+
+- Prowadnica: wysokość ≥ 20 mm, wysięg ≥ grubość ścianki tacy + 6 mm.
+- Dwie tace stopniowane: dolna węższa o dwa wysięgi górnych prowadnic i 4 mm, dolne
+  prowadnice wystają o wysięg górnych + ściankę tacy + 4 mm, więc dolna taca przechodzi
+  między górnymi prowadnicami.
+- Dno tacy na listewkach 10×15 klejonych w tacy, przegródka we wpuście T/3, otwór na dłoń w
+  każdej ściance czołowej z ≥ 25 mm drewna nad nim.
+- Wierzch najwyższej tacy ≥ grubość listwy wieka + 5 mm pod krawędzią ścian.
+
+### Kontrole
+
+Belka swobodnie podparta, E = 9000 MPa (sosna bez klasy, wartość ostrożna), oznaczone na
+stronie jako kontrola rozsądku.
+- Wieko: deska środkowa, oparta tylko na bokach (przód i tył mają podparcie ciągłe, a
+  listwy przy końcach nie pomagają w środku przęsła). Rozpiętość = długość wewnętrzna + T,
+  1 kN w środku, szerokość całego wieka przy klejeniu, jednej deski przy zakładce. L/200
+  i σ ≤ 14 MPa. Domyślne wieko sklejone: 3,6 mm i 6,4 MPa. Na zakładkę: 8,2 mm i
+  14,6 MPa → ostrzeżenie.
+- Dno: jedna deska, 1 kN w środku (ktoś wejdzie do skrzyni), L/300.
+- Listwy nośne: wkręty na 2 × ciężar załadowanej skrzyni (narzędzia domyślnie 80 kg),
+  0,5 kN na wkręt.
+- Masa pustej skrzyni przy 500 kg/m³.
 
 ### Rozkrój
 
 Ten sam algorytm co w skrzynce (odcinki → pasy → elementy, kilka kolejności sortowania,
 wynik z najmniejszą liczbą desek, potem cięć wzdłuż), przeniesiony do
-`skrzynia/js/boards.js` jako czysta funkcja. Kopia, a nie import, bo skrzynka nie jest
-modułem. Ujednolicenie zostawiamy osobnej zmianie (patrz Non-Goals).
+`skrzynia/js/boards.js` jako czysta funkcja i uruchamiany osobno dla desek skrzyni i
+desek tac. Kopia, a nie import, bo skrzynka nie jest modułem.
 
 ### Szukanie wymiarów
 
-Siatka 10 mm: długość zewnętrzna 400–1400, głębokość 250–700, wysokość 250–700, z
-dodatkowymi wartościami „wysokość ściany = k × szerokość deski”, żeby ściany wychodziły
-bez cięcia wzdłuż. Kandydaci sortowani po celu, rozkrój liczony od najlepszego aż do
-pierwszego, który się mieści. Liczba kandydatów kontrolowana testem czasu (< 1 s w Node
-dla domyślnych desek).
+Siatka 10 mm, wysokości z poprawnym układem wczepów, plus wartości „wysokość ściany =
+k × szerokość deski”, żeby ściany wychodziły bez cięcia wzdłuż. Kandydaci sortowani po
+celu, rozkrój liczony od najlepszego do pierwszego, który się mieści. Test czasu < 1 s w
+Node dla domyślnych desek.
 
-### Kontrole ugięć
+### Skrzynia pod stołem
 
-- Deska dna: belka swobodnie podparta, rozpiętość = głębokość wewnętrzna, szerokość = szerokość
-  deski dna, obciążenie równomierne = 60 kg × 9,81 / powierzchnia dna, E = 11 000 MPa, L/300.
-- Wieko: belka o szerokości całego wieka, rozpiętość = długość wewnętrzna, siła 1 kN w środku,
-  L/200. Bez kleju liczymy tylko jedną deskę przy listwie (przypadek pesymistyczny).
-To kontrola rozsądku, nie wymiarowanie. Strona to mówi.
+Opcjonalna wolna wysokość pod stołem ogranicza wysokość całkowitą (ściany + wieko +
+4 mm cokołu). Wieko otwiera się na wysokość ściany + głębokość wieka, więc pod stołem
+zwykle trzeba skrzynię wysunąć. Strona to mówi, zamiast udawać, że się otworzy.
 
-### Uchwyty
+### Forma
 
-Górna krawędź uchwytu 20–40 mm pod fartuchem wieka. Środek ciężkości załadowanej skrzyni
-jest wtedy pod dłońmi i skrzynia nie przechyla się przy niesieniu.
+Recenzja agenta `mistrz-rzemieslnik`: wnioski w sekcji „Forma — recenzja rzemieślnika”
+niżej. Zasada repo: ozdobą jest połączenie, krawędzie złamane 1–2 mm, bez profili.
 
 ### Strona
 
@@ -108,6 +132,7 @@ szkieletu). Stan w localStorage i w `#hash` (base64 JSON, jak `encodeState` w sz
 
 - [Kopia algorytmu rozkroju rozjedzie się ze skrzynką] → testy rozkroju w `tests/skrzynia.test.js`; ujednolicenie jako następna zmiana.
 - [Za dużo kandydatów przy 12 deskach spowolni stronę] → ucinanie po pierwszym pasującym rozkroju i test czasu.
-- [Wczepy, które nie pasują, dają szczeliny i słaby klej] → narożnik próbny w planie pracy, tolerancja 0,5 mm na zestruganie; cokół i fartuch dodatkowo spinają narożniki.
-- [Tace z desek skrzyni są ciężkie] → osobne deski na tace (domyślnie 12 mm), a gdy ich brak, strona pokazuje dodatkową masę.
-- [Uproszczona kontrola wieka] → przypadek pesymistyczny dla wieka bez kleju i jawne zastrzeżenie.
+- [Wczepy, które nie pasują, dają szczeliny i słaby klej] → narożnik próbny, tolerancja 0,5 mm na zestruganie, montaż na sucho, klej z długim czasem otwartym.
+- [106 wczepów to dużo pracy] → strona pokazuje liczbę i szacunek czasu, poziom trudności 4.
+- [Uproszczone kontrole] → ostrożne E, przypadek pesymistyczny, jawne zastrzeżenie.
+- [Wieko otwiera się tylko po wysunięciu spod stołu] → komunikat na stronie, cokół wystający 4 mm ułatwia przesuwanie.

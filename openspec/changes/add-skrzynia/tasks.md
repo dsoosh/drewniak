@@ -1,28 +1,35 @@
-## 1. Generator
+## 1. Zasady i agenci
 
-- [ ] 1.1 `skrzynia/js/boards.js`: rozkrój z desek użytkownika (osobno deski skrzyni i deski tac) (odcinki → pasy → elementy, liczenie cięć wzdłuż); testy w `tests/skrzynia.test.js` na zapas na rzaz, obcięcie końców i liczbę cięć wzdłuż przechodzą
-- [ ] 1.2 `skrzynia/js/build.js`: `defaultState()`, walidacja zakresów, geometria (wczepy proste we wszystkich narożnikach: korpus, cokół, fartuch, tace, dno między ścianami, cokół, wieko z listwami i fartuchem, tace z prowadnicami, uchwyty); test domyślnej konfiguracji: brak NaN, brak ostrzeżeń, oczekiwana liczba elementów
-- [ ] 1.3 Szukanie wymiarów: cele „pojemność” i „proporcje”, blokady, minimalna długość wewnętrzna, głębokość ≤ 0,75 długości, ściany klejone albo z jednej deski; testy scenariuszy ze speca (blokada wysokości, min. 700 mm, klej wyłączony, za małe deski z listą podpowiedzi) i test czasu < 1 s
-- [ ] 1.4 Okucia i łączniki (zawiasy 2/3, ogranicznik, gwoździe 2,5–3 × T, wkręty, klej), kontrole ugięć dna i wieka, masa, ostrzeżenie o niskim miejscu pod tacami, poziom trudności i plan pracy; testy na długie wieko (3 zawiasy), układ wczepów (400 mm, T = 20 → 15 wczepów po ok. 26,7 mm, przód i tył trzymają skrajne), niezależność od szwu klejenia, tace z desek 12 mm i bez desek na tace, 14 narożników na wczepy przy jednej tacy, wysokość uchwytów i ugięcia w granicach dla domyślnej skrzyni
+- [x] 1.1 Agent `mistrz-rzemieslnik` w `.claude/agents/` i kopia w `.github/agents/` (`node tools/sync-agents.js`); plik istnieje w obu miejscach
+- [x] 1.2 Skill `ciesielka-i-stolarka`: łączniki przy cienkich deskach, gwóźdź w drewnie czołowym, dno i wieko dużych skrzyń, wczepy proste, fugowanie i wilgotność; skopiowany do `.github/skills/`
+- [x] 1.3 `CLAUDE.md`, `.github/copilot-instructions.md` i skill `nowa-konstrukcja`: recenzja obu mistrzów i zasada „ozdobą jest połączenie”
+- [ ] 1.4 Recenzja speca przez `mistrz-rzemieslnik` i ponowna przez `mistrz-ciesielski`; wnioski w specu albo w `design.md` jako przyjęte, `openspec validate add-skrzynia --strict` przechodzi
 
-## 2. Strona
+## 2. Generator
 
-- [ ] 2.1 `skrzynia/index.html` + `skrzynia/js/app.js`: formularz, wyniki, ostrzeżenia, zastrzeżenie „to nie jest projekt”, localStorage i `#hash`; sprawdzić w `node tools/serve.js`, że link odtwarza tę samą skrzynię i konsola jest czysta
-- [ ] 2.2 Rzuty przód/bok/góra z wymiarami, wczepami, cokołem, tacami i bananem; rozkrój desek z kolejnością cięć; lista cięć ze szkicami; sprawdzić wizualnie na domyślnej skrzyni i na 2 tacach
-- [ ] 2.3 Model 3D (three.js 0.160) z otwieranym wiekiem i bananem; sprawdzić w przeglądarce (Playwright, zrzut ekranu)
-- [ ] 2.4 PDF (jsPDF + svg2pdf.js, font DejaVu ze szkieletu) z rzutami, rozkrojem, listą cięć, okuciami, planem pracy, ugięciami i zastrzeżeniem; sprawdzić, że plik się pobiera i ma wszystkie sekcje
+- [ ] 2.1 `skrzynia/js/boards.js`: rozkrój z desek użytkownika, osobno deski skrzyni i deski tac (odcinki → pasy → elementy, liczenie cięć wzdłuż); testy w `tests/skrzynia.test.js` na zapas na rzaz, obcięcie końców i liczbę cięć wzdłuż przechodzą
+- [ ] 2.2 Reguła wczepów (najmniejsze nieparzyste n ≥ 3 z H/n ≤ 1,5T i ≥ T, najbliższe poprawne wysokości); testy: 400/20 → 15, 80/20 → 3, 60/20 → 3, 100/12 → 7, 95/20 odrzucone z 90 i 100
+- [ ] 2.3 `skrzynia/js/build.js`: `defaultState()`, walidacja zakresów, geometria (korpus, dno na listwach ze szczelinami, cokół 4 mm pod korpusem, wieko z luzami, fartuchem i listwami, tace stopniowane z dnem, przegródką i otworami, uchwyty); testy: brak NaN, brak ostrzeżeń w domyślnej, 14 narożników przy jednej tacy, dno 3 × 200 + 148, luz wieka 23/28 mm, dolna taca mieści się między górnymi prowadnicami, uchwyty 320–330 mm
+- [ ] 2.4 Szukanie wymiarów: cele, blokady, minimalna długość wewnętrzna, głębokość ≤ 0,75 długości, klejenie z zapasem 2 mm albo ściana z jednej deski, wolna wysokość pod stołem; testy scenariuszy ze speca (blokada wysokości 400, min. 700 mm, klej wyłączony → ściany 200 mm, za małe deski z podpowiedziami, skrzynia pod stołem) i test czasu < 1 s
+- [ ] 2.5 Łączniki per połączenie (≤ suma grubości − 3 mm, zawiasy ≤ T − 3), okucia, kontrole (wieko: ugięcie i σ, dno 1 kN, wkręty listew), masa, liczba wczepów i czas, poziom trudności, narzędzia i plan pracy; testy: gwoździe cokołu ≤ 37 mm, wieko na zakładkę ≈ 8,2 mm z ostrzeżeniem, wieko klejone < 3,9 mm i < 14 MPa, 3 zawiasy przy 900 mm, M6 przy uchwytach kupnych
 
-## 3. Strona główna i dokumentacja
+## 3. Strona
 
-- [ ] 3.1 Karta skrzyni w `index.html` i wpis w `README.md`; sprawdzić link lokalnie
-- [ ] 3.2 Skill `nowa-konstrukcja`/README: dopisać `node tests/skrzynia.test.js` do poleceń; `node tools/sync-agents.js`, jeśli zmienił się skill
+- [ ] 3.1 `skrzynia/index.html` + `skrzynia/js/app.js`: formularz (deski skrzyni, deski tac, klej, cel, blokady, tace, uchwyty, cokół, fartuch, obciążenie, wysokość pod stołem), wyniki, ostrzeżenia, zastrzeżenie „to nie jest projekt”, localStorage i `#hash`; w `node tools/serve.js` link odtwarza tę samą skrzynię, konsola czysta
+- [ ] 3.2 Rzuty przód/bok/góra z wymiarami, wczepami, cokołem, tacami i bananem; rozkrój obu kompletów desek z kolejnością cięć; lista cięć ze szkicami; sprawdzić wizualnie na domyślnej skrzyni i na 2 tacach
+- [ ] 3.3 Model 3D (three.js 0.160) z otwieranym wiekiem, wczepami i bananem; zrzut ekranu z Playwright
+- [ ] 3.4 PDF (jsPDF + svg2pdf.js, font DejaVu ze szkieletu) z rzutami, rozkrojem, listą cięć, okuciami, planem pracy, kontrolami i zastrzeżeniem; plik się pobiera i ma wszystkie sekcje
 
-## 4. Integracja
+## 4. Strona główna i dokumentacja
 
-- [ ] 4.1 `node tests/build.test.js` i `node tests/skrzynia.test.js` przechodzą, `openspec validate --all --strict` przechodzi
-- [ ] 4.2 Recenzja agenta `mistrz-ciesielski` na domyślnej skrzyni i na przypadkach brzegowych; wady konstrukcyjne poprawione
+- [ ] 4.1 Karta skrzyni w `index.html` i wpis w `README.md` (z `node tests/skrzynia.test.js`); link działa lokalnie
+
+## 5. Integracja
+
+- [ ] 5.1 `node tests/build.test.js` i `node tests/skrzynia.test.js` przechodzą, `openspec validate --all --strict` przechodzi
+- [ ] 5.2 Recenzja `mistrz-ciesielski` i `mistrz-rzemieslnik` na wygenerowanej skrzyni (domyślna, najmniejsza, największa, 2 tace, bez kleju); wady poprawione albo przyjęte w `design.md`
 
 ## Workflow follow-up
 
-- `/opsx:archive` po recenzji mistrza i odhaczeniu wszystkich zadań.
+- `/opsx:archive` po recenzjach obu mistrzów i odhaczeniu wszystkich zadań.
 - Wydanie skillem `wydanie`.
