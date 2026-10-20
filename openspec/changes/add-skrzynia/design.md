@@ -26,8 +26,8 @@ skrzynia idzie drogą szkieletu, nie skrzynki.
 
 Przy podnoszeniu za uchwyty: narzędzia → tace → prowadnice → ściany przód/tył; narzędzia
 na dnie → deski dna (przęsło przód–tył, wzdłuż słojów) → gwoździe wbite przez przód i tył
-w czoła desek dna, które pracują **na ścinanie** → ściany przód/tył → wręby w narożnikach
-(docisk przodu i tyłu do ramienia wrębu, klej, gwoździe) → boki → klocki uchwytów (klej
+w czoła desek dna, które pracują **na ścinanie** → ściany przód/tył → wczepy w narożnikach
+(klej na bocznych powierzchniach wczepów, long-grain do long-grain) → boki → klocki uchwytów (klej
 na długich włóknach, wkręty od środka na ścinanie) → dłonie.
 
 Przy stawianiu na podłodze: dno i ściany → cokół (klej long-grain i gwoździe) → podłoga.
@@ -37,19 +37,30 @@ Cokół zasłania czoła dna i trzyma dolne krawędzie ścian.
 spodu (gwoździe na wyrywanie pod ciężarem narzędzi) i uchwyty przykręcone przez bok
 w drewno czołowe.
 
-### Wręby zamiast doczołowego połączenia
+### Wczepy proste w narożnikach
 
-Wręb w przodzie i tyle, szeroki na grubość deski, głęboki na ⅔ grubości. Ramię wrębu
-przejmuje parcie boków na zewnątrz, gwoździe tylko trzymają połączenie, nie niosą
-ciężaru. Gwoździe wbite skośnie na przemian (na jaskółkę), bo gwóźdź w drewnie czołowym
-słabo trzyma, gdy idzie prosto. Wręb robi się piłą grzbietnicą i strugiem wręgowym albo
-dłutem, więc mieści się w narzędziach ręcznych. Poziom trudności: 3.
+Wczepy proste (finger joint) zamiast wrębów: każdy wczep daje dwie powierzchnie
+klejenia wzdłuż włókien, więc narożnik trzyma sam klej, bez gwoździ w drewnie czołowym.
+Głębokość = grubość deski + 0,5 mm na zestruganie. Liczba wczepów nieparzysta, szerokość
+1–1,5 × T: `n` = najmniejsza nieparzysta liczba, przy której `H / n ≤ 1,5 T`. Wtedy przód
+i tył trzymają skrajne wczepy u góry i u dołu, a boki nie mają krótkiego drewna przy
+krawędzi. Wczepy przodu i tyłu zakładają się na boki, więc przód i tył mają długość
+zewnętrzną, a boki głębokość zewnętrzną. Wnętrze to wymiar zewnętrzny minus 2T.
+
+Ściana klejona z pasów: najpierw klejenie i wyrównanie, potem trasowanie wczepów. Układ
+zależy tylko od wysokości ściany, szew może wypaść w środku wczepu, bo jest już pełnym
+złączem wzdłuż włókien. Tace i fartuch wieka mają te same wczepy: fartuch 60 mm daje
+3 wczepy, taca 100 mm z desek 12 mm daje 7.
+
+Wczepy robi się piłą grzbietnicą i dłutem, z szablonu albo trasowane cyrklem. To
+trudniejsze niż wręby: poziom trudności 4, bo 40 i więcej wczepów musi pasować na sucho.
+Plan pracy każe zrobić najpierw jeden narożnik próbny na odpadzie.
 
 ### Wieko
 
 Deski wieka wzdłuż długości, sklejone na krawędziach albo luźne. Dwie listwy poprzeczne
 przykręcone przez otwory podłużne, bez kleju, bo wieko pracuje w poprzek słojów o 2–3%.
-Fartuch z trzech stron, narożniki na wręb jak w skrzyni. Przedni fartuch ma słoje
+Fartuch z trzech stron, narożniki na wczepy jak w skrzyni. Przedni fartuch ma słoje
 równolegle do wieka, więc jest przyklejony i przybity do jego krawędzi. Boczne fartuchy
 leżą w poprzek słojów wieka: klej tylko na 50 mm od przodu, dalej wkręty przez otwory
 podłużne, żeby wieko mogło pracować do tyłu. Zawiasy pasowe na tylnej krawędzi. Ogranicznik (łańcuszek albo linka) chroni zawiasy przed
@@ -78,6 +89,11 @@ dla domyślnych desek).
   L/200. Bez kleju liczymy tylko jedną deskę przy listwie (przypadek pesymistyczny).
 To kontrola rozsądku, nie wymiarowanie. Strona to mówi.
 
+### Uchwyty
+
+Górna krawędź uchwytu 20–40 mm pod fartuchem wieka. Środek ciężkości załadowanej skrzyni
+jest wtedy pod dłońmi i skrzynia nie przechyla się przy niesieniu.
+
 ### Strona
 
 `skrzynia/index.html` + `skrzynia/js/app.js` (DOM, SVG, three.js 0.160 przez import map,
@@ -89,5 +105,6 @@ szkieletu). Stan w localStorage i w `#hash` (base64 JSON, jak `encodeState` w sz
 
 - [Kopia algorytmu rozkroju rozjedzie się ze skrzynką] → testy rozkroju w `tests/skrzynia.test.js`; ujednolicenie jako następna zmiana.
 - [Za dużo kandydatów przy 12 deskach spowolni stronę] → ucinanie po pierwszym pasującym rozkroju i test czasu.
-- [Gwoździe w drewnie czołowym we wrębach] → wręby z ramieniem i klej przenoszą obciążenie, gwoździe skośne; cokół i fartuch dodatkowo spinają narożniki.
+- [Wczepy, które nie pasują, dają szczeliny i słaby klej] → narożnik próbny w planie pracy, tolerancja 0,5 mm na zestruganie; cokół i fartuch dodatkowo spinają narożniki.
+- [Tace z desek skrzyni są ciężkie] → osobne deski na tace (domyślnie 12 mm), a gdy ich brak, strona pokazuje dodatkową masę.
 - [Uproszczona kontrola wieka] → przypadek pesymistyczny dla wieka bez kleju i jawne zastrzeżenie.

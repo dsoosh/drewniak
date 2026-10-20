@@ -47,15 +47,28 @@ of separate boards held by the battens and the nails.
 - **WHEN** gluing is off
 - **THEN** every carcass wall is a single board width high
 
-### Requirement: Corners are rebated, glued and nailed
-The front and back SHALL be rebated at both ends to take the end walls, with the rebate
-as wide as the board thickness and two thirds of it deep. The joint SHALL be glued and
-nailed through the front and back into the end walls with nails driven at alternating
-angles, nail length 2.5–3 × board thickness.
+### Requirement: Corners are finger-jointed and glued
+The four vertical corners SHALL be finger joints (box joints) as deep as the board
+thickness plus 0.5 mm, to be planed flush. Each corner SHALL have an odd number of fingers,
+each 1–1.5 × board thickness wide, so the front and back start and end with a full finger
+at the top and the bottom edge. The joint SHALL be glued without nails.
 
-#### Scenario: Rebate dimensions
-- **WHEN** the board is 21 mm thick
-- **THEN** the drawings show 21×14 mm rebates at the four vertical corners and the materials list nails 50–60 mm long
+#### Scenario: Finger layout
+- **WHEN** the walls are 400 mm high and the board is 20 mm thick
+- **THEN** the drawings show 15 fingers of about 26.7 mm at each corner, the front and back holding the top and bottom fingers
+
+#### Scenario: Pieces at full outer size
+- **WHEN** a chest is found
+- **THEN** the cut list gives the front and back at the outer length and the ends at the outer depth, and the materials list no nails for the corners
+
+### Requirement: Finger layout ignores the glue seam
+A wall glued from strips SHALL be glued and flattened before the fingers are marked, and
+the finger layout SHALL depend only on the wall height, not on where the glue seam falls.
+The work plan SHALL say so.
+
+#### Scenario: Seam inside a finger
+- **WHEN** the glue seam of a 400 mm wall lies at 200 mm
+- **THEN** the finger layout is the same as for a one-piece wall and the work plan glues the wall before cutting the fingers
 
 ### Requirement: The bottom is carried by nails in shear
 The bottom SHALL sit between the four walls, its boards running front to back with
@@ -93,7 +106,7 @@ it is longer than 800 mm, and a stay SHALL limit the opening to about 100°.
 The user SHALL choose 0, 1 or 2 trays (default 1). A tray SHALL be as deep as the inner
 depth minus 4 mm, half the inner length long and 60–150 mm high, and slide on a pair of
 runners glued and nailed to the inner front and back walls. A second tray sits on its own
-runners above the first.
+runners above the first. Tray corners SHALL be finger-jointed like the chest.
 
 #### Scenario: Two trays
 - **WHEN** the user picks 2 trays
@@ -103,10 +116,29 @@ runners above the first.
 - **WHEN** the trays and their runners leave less than 120 mm of free height below them
 - **THEN** the page warns that the space under the trays is too low
 
+### Requirement: Tray stock is thinner than the chest
+Trays SHALL be made from separate tray boards (thickness 8–16 mm, default 12, with their
+own length, width and count), laid out in their own board layout. When the user leaves
+the tray boards empty, the trays SHALL be cut from the chest boards and the page SHALL
+show the extra mass this adds.
+
+#### Scenario: Default tray boards
+- **WHEN** the user keeps the default tray boards
+- **THEN** the tray walls in the cut list are 12 mm thick and the tray boards have their own layout
+
+#### Scenario: No tray boards
+- **WHEN** the tray boards are empty
+- **THEN** the trays are cut from the chest boards and the page shows how much heavier they are
+
 ### Requirement: Handles on the ends
 The chest SHALL have a handle on each end, either bought metal handles or wooden blocks
 cut from the board, glued with the grain parallel to the end wall and screwed from the
-inside.
+inside. The handle SHALL sit with its top 20–40 mm below the lid apron, so the loaded
+chest hangs below the hands and does not tip.
+
+#### Scenario: Handle height
+- **WHEN** the walls are 400 mm high and the apron is 60 mm
+- **THEN** the top of each handle is 300–320 mm above the bottom of the walls
 
 #### Scenario: Wooden handles
 - **WHEN** the user picks wooden handles

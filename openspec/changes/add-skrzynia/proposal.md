@@ -12,10 +12,11 @@ i jak ją połączyć, żeby nie rozpadła się przy pierwszym podniesieniu.
 - Wymiary skrzyni są dobierane z desek, które ma użytkownik (długość, szerokość, grubość,
   liczba). Długość, głębokość i wysokość można zablokować. Jest minimalna długość
   wewnętrzna, na przykład na piłę.
-- Konstrukcja: narożniki na wręby, przybite gwoździami i sklejone. Dno leży między
+- Konstrukcja: narożniki na wczepy proste (finger joint), tylko na klej. Dno leży między
   ścianami i jest przybite przez ściany, więc gwoździe pracują na ścinanie. Do tego
   cokół, wieko z listwami poprzecznymi i fartuchem, ogranicznik otwarcia wieka,
-  0–2 wyjmowane tace na prowadnicach i uchwyty na bokach.
+  0–2 wyjmowane tace z cieńszych desek (domyślnie 12 mm) na prowadnicach i uchwyty
+  na bokach tuż pod fartuchem wieka.
 - Wyniki: model 3D, rzuty z wymiarami, rozkrój desek z kolejnością cięć, lista cięć,
   okucia i łączniki, plan pracy narzędziami ręcznymi, poziom trudności, kontrola ugięć
   dna i wieka, masa skrzyni i PDF. Na rysunkach i w 3D stoi banan do skali.
