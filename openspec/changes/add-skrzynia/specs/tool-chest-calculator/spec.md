@@ -9,7 +9,7 @@ dobieranej z desek, które użytkownik ma, i robionej wyłącznie narzędziami r
 The calculator SHALL take board length (300–6000), width (60–400), thickness after planing
 (12–32), count (1–12), kerf (0–6) and end trim (0–100), and search chest dimensions on a
 10 mm grid whose pieces can be cut from those boards. Goal "capacity" picks the largest
-inner volume, goal "proportions" the volume closest to length : depth : height = 1 : 0.55 : 0.6.
+inner volume, goal "proportions" follows the proportion rule.
 
 #### Scenario: Default boards
 - **WHEN** the user enters eight 2500×200×20 mm boards and goal "proportions"
@@ -18,6 +18,15 @@ inner volume, goal "proportions" the volume closest to length : depth : height =
 #### Scenario: Boards too small
 - **WHEN** no chest fits the boards
 - **THEN** the page hides the results and lists what to change (more boards, longer boards, lower minimum length, fewer trays)
+
+### Requirement: Proportions are judged on the whole outline
+Goal "proportions" SHALL pick the chest whose overall outline (length over the aprons,
+depth over the skirt, height from the floor to the top of the lid) is closest to
+1 : 0.55 : 0.6 within ±0.05; ties go to fewer rip cuts, then to seams placed by the grid.
+
+#### Scenario: Outline, not walls
+- **WHEN** two chests have the same wall height but different skirt and lid heights
+- **THEN** the proportion is computed on the total height from the floor to the top of the lid
 
 ### Requirement: Dimensions can be locked and bounded
 Height SHALL mean the height of the carcass walls; the page SHALL also show the total
@@ -43,28 +52,37 @@ height) the page SHALL say the chest must be pulled out to open.
 - **THEN** the chest is proposed with a note that it opens only when pulled out from under the bench
 
 ### Requirement: Walls wider than a board are edge-glued
-With gluing on, a wall or lid wider than the board SHALL be glued along the grain from
-full-width strips plus one remainder of at least 40 mm, each glued edge with 2 mm extra
-for jointing. With gluing off, each wall SHALL be exactly one board width high, the
-height range SHALL start at the board width, and the lid boards SHALL be shiplapped.
+With edge gluing on, a wall or lid wider than the board SHALL be glued along the grain
+from full-width strips plus one remainder of at least 40 mm. Jointing takes 2 mm per glued
+edge: full-width strips lose it, the remainder is cut 2 mm wider per glued edge.
 
 #### Scenario: Wall taller than the board
-- **WHEN** the board is 200 mm wide, gluing is on and the walls are 330 mm high
-- **THEN** the cut list shows each wall as one 202 mm strip and one 132 mm strip, jointed to 330 mm and glued edge to edge
+- **WHEN** the board is 200 mm wide, edge gluing is on and the walls are 330 mm high
+- **THEN** the cut list shows each wall as one full 200 mm strip jointed to 198 mm and one 134 mm strip jointed to 132 mm, glued to 330 mm
 
-#### Scenario: Gluing off
-- **WHEN** gluing is off and the board is 200 mm wide
-- **THEN** every carcass wall is 200 mm high and the lid boards are shiplapped
+### Requirement: Walls without edge gluing are stacked boards
+With edge gluing off, each wall SHALL be k whole boards stacked without glue in the seams,
+the height SHALL be k × board width, each board SHALL get its own finger layout, and the
+lid boards SHALL be shiplapped. Finger joints, cleats and the skirt SHALL be glued in both
+modes; the option SHALL be labelled "klejenie krawędzi".
+
+#### Scenario: Edge gluing off
+- **WHEN** edge gluing is off and the board is 200 mm wide
+- **THEN** the walls are 400 mm high from two boards each, every board has 7 fingers of 28.6 mm at each corner and the lid boards are shiplapped
+
+#### Scenario: Board too narrow for stacking
+- **WHEN** edge gluing is off and no multiple of the board width fits the height range
+- **THEN** the page says which board width or which height lock would work
 
 ### Requirement: Corners are finger-jointed and glued
 The four vertical corners SHALL be finger joints as deep as the board thickness plus
 0.5 mm, to be planed flush, glued without nails. The front and back SHALL hold the top and
-bottom fingers, so the front and back are cut at the outer length and the ends at the
-outer depth.
+bottom fingers. Finger-jointed pieces SHALL be cut 1 mm longer than the outer size; the
+10 mm grid applies to the chest dimensions, not to such allowances.
 
-#### Scenario: Pieces at full outer size
-- **WHEN** a chest is found
-- **THEN** the cut list gives the front and back at the outer length and the ends at the outer depth, and the materials list no nails for the corners
+#### Scenario: Pieces at outer size plus allowance
+- **WHEN** a chest of 800 × 440 mm is found
+- **THEN** the cut list gives the front and back at 801 mm and the ends at 441 mm, and the materials list no nails for the corners
 
 ### Requirement: Finger layout rule
 For an element of height H and thickness T the number of fingers n SHALL be the smallest
@@ -77,12 +95,34 @@ the nearest valid heights.
 - **THEN** each corner has 15 fingers of 26.7 mm
 
 #### Scenario: Small parts
-- **WHEN** T is 20 mm, the skirt is 80 mm and the apron 60 mm, and the trays are 100 mm high from 12 mm boards
-- **THEN** the skirt has 3 fingers of 26.7 mm, the apron 3 of 20 mm and the trays 7 of 14.3 mm
+- **WHEN** H is 400 mm, T is 20 mm and the trays are 110 mm high from 12 mm boards
+- **THEN** the skirt (84 mm) has 3 fingers of 28 mm, the apron (73.3 mm) 3 of 24.4 mm and the trays 7 of 15.7 mm
+
+#### Scenario: Thick boards
+- **WHEN** T is 28 or 32 mm
+- **THEN** the apron and skirt follow from the grid with valid finger layouts and a valid chest is still found
 
 #### Scenario: Height without a layout
-- **WHEN** a skirt of 95 mm is asked for with T = 20 mm
-- **THEN** it is rejected because 5 fingers would be 19 mm, and 90 mm and 100 mm are offered instead
+- **WHEN** trays of 75 mm are asked for from 16 mm tray boards
+- **THEN** the height is rejected because 5 fingers would be 15 mm, and 70 mm and 80 mm are offered instead
+
+### Requirement: Horizontal lines follow the finger grid
+Let w be the carcass finger width. Every horizontal line that crosses a carcass corner (top
+of the skirt, lower edge of the apron, top and bottom of the handles, glue seams) SHALL lie
+on k·w or (k + ½)·w measured from the bottom of the walls.
+
+#### Scenario: Default grid
+- **WHEN** H is 400 mm and T is 20 mm (w = 26.7 mm)
+- **THEN** the skirt top is at 3w = 80 mm, the apron edge at 13w = 346.7 mm and the wall seam at 7.5w = 200 mm
+
+### Requirement: Glue seams sit on the grid
+A wall glue seam SHALL lie on a finger boundary, or at least w/4 away from every boundary,
+or on the skirt top line, or at least 10 mm below it. Strip widths SHALL set the seam: each
+strip at most the board width, the remainder at least 40 mm, and a full strip at the top.
+
+#### Scenario: Seam moved by the remainder
+- **WHEN** a wall of 3 strips would put a seam closer than w/4 to a finger boundary
+- **THEN** the remainder strip is narrowed or widened by at most w/2 so the seam lands on a valid position, and the extra rip is counted
 
 ### Requirement: Every corner joint is a finger joint
 Every joint where two boards meet at a corner SHALL be a finger joint by the layout rule:
@@ -91,7 +131,7 @@ cut and an estimate of the time. Other joints are given by their own requirement
 
 #### Scenario: Joint list
 - **WHEN** a chest with one tray is found
-- **THEN** the cut list and work plan show finger joints at 14 corners (4 carcass, 4 skirt, 4 tray, 2 apron at the front of the lid), the total finger count and no mitres, rebates or butt corners
+- **THEN** the cut list and work plan show finger joints at 14 corners (4 carcass, 4 skirt, 4 tray, 2 apron at the front of the lid), the total finger count and no mitres, rebated corners or butt corners
 
 ### Requirement: Finger layout ignores the glue seam
 A wall glued from strips SHALL be glued and flattened before the fingers are marked, and
@@ -105,69 +145,95 @@ The work plan SHALL say so.
 ### Requirement: The bottom bears on cleats
 The bottom boards SHALL run front to back and rest on two cleats of at least 20×30 mm
 glued long-grain and screwed to the inner front and back, and SHALL be nailed down into
-the cleats. No nail SHALL go through the walls into the bottom. The bottom SHALL NOT be
-glued into a panel.
+the cleats: one nail per end on the board axis, two within the middle third for boards over
+150 mm. No nail SHALL go through the walls. The bottom SHALL NOT be glued into a panel.
 
 #### Scenario: Bottom layout
 - **WHEN** the inner depth is 400 mm and the board is 200 mm wide
-- **THEN** the bottom boards are 400 mm long, rest on two cleats and each is nailed with two nails at each end into the cleats
+- **THEN** the bottom boards are 400 mm long, rest on two cleats and each 200 mm board has two nails within its middle third at each end
 
 ### Requirement: Bottom boards have room to move
 Bottom boards SHALL have gaps of 1% of the board width (at least 2 mm) between them and
 3 mm at each end wall, and pieces narrower than a board SHALL be at least 40 mm wide.
 
-#### Scenario: Default bottom
+#### Scenario: Default bottom gaps
 - **WHEN** the inner length is 760 mm and the board is 200 mm wide
 - **THEN** the bottom has three 200 mm boards and one remainder of 148 mm, with 2 mm gaps and 3 mm at each end
 
 ### Requirement: Fastener length fits the joint
-Each nail and screw SHALL be no longer than the total thickness of the parts it joins
-minus 3 mm, computed per joint, and the materials list SHALL give length and count per
-joint. Hinge screws SHALL be at most T − 3 mm long.
+Each nail and screw SHALL be no longer than the depth of material along the fastener minus
+3 mm, computed per joint, and the materials list SHALL give length and count per joint.
+Screws into edges or end grain SHALL be pre-drilled. Hinge leaves SHALL be at most T wide
+and hinge screws at most T − 3 mm long.
 
 #### Scenario: Skirt nails
 - **WHEN** the skirt and walls are 20 mm thick
 - **THEN** the skirt nails are at most 37 mm long and none comes through into the chest
 
 ### Requirement: Skirt around the base
-The chest SHALL have a finger-jointed skirt of 60–120 mm (default 80) around the bottom,
-standing 4 mm below the carcass so the walls and bottom do not touch the floor. The skirt
-SHALL be glued up as a frame 0.5 mm larger than the carcass, then glued and nailed on.
+The chest SHALL have a finger-jointed skirt of height k·w + 4 mm (k whole or half, k ≥ 2)
+with its own valid finger layout, within 60–150 mm and closest to H/5, standing 4 mm below
+the carcass. It SHALL be glued up as a frame 0.5 mm larger than the carcass, then glued and
+nailed on. Its bottom outer edge SHALL get a 3 mm chamfer and oil.
 
 #### Scenario: Skirt in the cut list
-- **WHEN** a chest is found
-- **THEN** the cut list contains two long skirt pieces at the outer length plus 2T and two short ones at the outer depth plus 2T, and the work plan fits the frame dry before gluing
+- **WHEN** H is 400 mm and T is 20 mm
+- **THEN** the skirt is 84 mm, two long pieces at the outer length plus 2T and two short ones at the outer depth plus 2T, and the work plan fits the frame dry before gluing
+
+#### Scenario: Heavy skirt warning
+- **WHEN** T is at least 24 mm and H is under 300 mm and the skirt comes out above 0.3 H
+- **THEN** the page warns about the proportion
 
 ### Requirement: Lid with apron and clearance
-The lid SHALL carry an apron on the front and the ends whose height (40–80 mm, at least 3T,
-default 60) is measured from the top of the lid. The overhang SHALL be apron thickness plus
-clearance: 3 mm at the ends, 3 mm plus 1% of the lid depth at the front.
+The lid SHALL carry an apron on the front and the ends, 2w + T high measured from the top
+of the lid, with 3 fingers at each front corner. The overhang SHALL be apron thickness plus
+clearance: 3 mm at the ends, 3 mm plus 1% of the lid depth at the front. The front apron's
+bottom outer edge SHALL get a 45° × 5 mm chamfer as a grip.
 
 #### Scenario: Lid clearance
 - **WHEN** the lid is 460 mm deep and the apron 20 mm thick
 - **THEN** the lid overhangs 23 mm at the ends and 28 mm at the front
 
+#### Scenario: Apron height
+- **WHEN** H is 400 mm and T is 20 mm
+- **THEN** the apron is 73.3 mm high with 3 fingers of 24.4 mm and its edge lies at 346.7 mm
+
 ### Requirement: Lid parts are fixed for wood movement
 The front apron SHALL be glued and nailed to the lid edge. The side aprons SHALL NOT be
-glued; they are held by the finger joint at the front and 2–3 screws into the lid through
-slots of at least 1.5% of the lid depth. Two battens SHALL be screwed with a fixed screw at
-the front and slotted holes towards the back.
+glued: held by the front finger joint, a fixed screw near the front and 1–2 screws into the
+lid in slots of ≥ 1.5% of the lid depth, ≥ 30 mm from the back. Battens SHALL be fixed at
+the front and slotted to the back; on a shiplapped lid each board gets one fixed screw.
 
 #### Scenario: Battens and side aprons
 - **WHEN** the work plan describes the lid
-- **THEN** it gives the fixed screw at the front, the slot lengths and says neither the battens nor the side aprons are glued
+- **THEN** it gives the fixed screws, the slot lengths and says neither the battens nor the side aprons are glued
+
+### Requirement: Lid battens
+Each batten SHALL be T × 50 mm, as long as the inner depth minus twice (3 mm + 1% of the
+lid depth), and sit 30 mm inside each end wall when closed, so the moving lid does not push
+it onto the front or back wall.
+
+#### Scenario: Batten length
+- **WHEN** the inner depth is 400 mm and the lid 460 mm deep
+- **THEN** each batten is 384.8 mm, cut at 385 mm, and clears the front and back walls by at least 7.6 mm
 
 ### Requirement: Hinges and stay
 The lid SHALL hang on two mortised hinges, three when it is longer than 800 mm. A chain or
-cord SHALL limit the opening to about 100°, fixed to an end wall with screws in shear.
+cord SHALL limit the opening to about 100°, screwed into the side face of a lid batten and
+into an end wall, both in shear. The page SHALL give the free space needed behind the
+chest to open the lid (lid depth × sin 10° + T).
 
 #### Scenario: Long lid
 - **WHEN** the lid is 900 mm long
-- **THEN** the materials list three hinges with screws of at most T − 3 mm and a stay chain with its screws
+- **THEN** the materials list three hinges with leaves of at most T and screws of at most T − 3 mm, and a stay chain with its screws
+
+#### Scenario: Space behind the chest
+- **WHEN** the lid is 460 mm deep and T = 20 mm
+- **THEN** the page says about 100 mm of free space is needed behind the chest
 
 ### Requirement: Removable trays on runners
 The user SHALL choose 0, 1 or 2 trays (default 1), half the inner length long and
-60–150 mm high (at least 3 × tray thickness), each on a pair of runners glued and screwed
+60–150 mm high (default 110, at least 3 × tray thickness), each on a pair of runners glued and screwed
 to the front and back. A runner SHALL be at least 20 mm high and project at least the tray
 wall thickness plus 6 mm.
 
@@ -177,21 +243,40 @@ wall thickness plus 6 mm.
 
 ### Requirement: Two trays are stepped
 With two trays, the lower tray SHALL be narrower than the gap between the upper runners:
-its depth is the inner depth minus twice the upper runner projection minus 4 mm, and the
-lower runners project at least the upper projection plus the tray wall thickness plus 4 mm.
+its depth is the inner depth minus twice the upper runner projection minus 4 mm. The lower
+runners SHALL project at least the upper projection plus the tray wall thickness plus 4 mm,
+and a guide strip with the upper projection SHALL run on each wall between the two runners.
 
 #### Scenario: Two trays
 - **WHEN** the user picks 2 trays
-- **THEN** the cut list contains two trays and four runners, the lower tray passes between the upper runners and the front view shows both levels
+- **THEN** the cut list contains two trays, four runners and two guide strips, the lower tray has 2 mm play to each guide and passes between the upper runners, and the front view shows both levels
+
+#### Scenario: Tray levels
+- **WHEN** two trays are stacked
+- **THEN** the top of the lower tray is at least 5 mm below the top of the upper runners
 
 ### Requirement: Tray construction
-Each tray SHALL have a bottom resting on 10×15 mm cleats glued inside the tray, one divider
-across the middle set in a housing a third of the tray thickness deep, and a hand hole in
-each end with at least 25 mm of wood above it.
+Each tray SHALL have one divider across the middle in a housing a third of the tray
+thickness deep. Each end SHALL have a hand hole whose top lies j = ceil(25 / w_t) tray
+fingers below the edge, as high as the smallest multiple of w_t of at least 25 mm, made of
+two drilled holes joined by a saw cut, 3 × its height long rounded to 10 mm, centred.
 
 #### Scenario: Tray parts
-- **WHEN** a chest with one tray is found
-- **THEN** the cut list contains the tray walls, bottom, two cleats and the divider, and the views show the hand holes
+- **WHEN** a chest with one tray of 110 mm from 12 mm boards is found
+- **THEN** the cut list contains the tray walls, bottom, two cleats and the divider, and each end has a 31.4 × 90 mm hand hole 31.4 mm below the edge
+
+#### Scenario: Low tray
+- **WHEN** less than 20 mm would remain between the hand hole and the tray bottom with its cleats
+- **THEN** each end gets a cut-out from the top edge instead of a hole
+
+### Requirement: Tray bottom moves freely
+The tray bottom SHALL be tray stock, rest on 10×15 mm cleats glued to two opposite tray
+walls with its grain spanning between them, have 3 mm plus 1% of its width as clearance at
+the other two walls, and be pinned once in the middle of each cleat.
+
+#### Scenario: Tray bottom
+- **WHEN** the tray bottom is 356 mm wide across the grain
+- **THEN** it has about 6.6 mm total clearance across the grain and two pins listed in the materials
 
 ### Requirement: Space for trays and tools
 The top of the highest tray SHALL be at least the batten thickness plus 5 mm below the top
@@ -217,40 +302,92 @@ show the extra mass this adds.
 - **THEN** the trays are cut from the chest boards and the page shows how much heavier they are
 
 ### Requirement: Handles on the ends
-Each end SHALL have a handle whose top is 30–40 mm below the lower edge of the closed
-apron. Wooden handles SHALL be two glued layers of board projecting at least 30 mm with an
-undercut for the fingers, glued long-grain and screwed from inside. Bought handles SHALL be
-bolted through with M6 bolts and washers into a backing block glued inside.
+Each end SHALL have a handle 2w high whose top lies on the highest grid line at least
+40 mm below the lower edge of the closed apron, centred, 0.5 × outer depth long rounded
+to 10 mm within 140–240 mm. Wooden handles (default) SHALL be ceil(30 / T) glued layers
+projecting ≥ 30 mm, glued long-grain, screwed from inside, with a 45° undercut on the lower half.
 
 #### Scenario: Handle height
-- **WHEN** the walls are 400 mm high, the lid 20 mm and the apron 60 mm
-- **THEN** the apron ends 360 mm above the bottom of the walls and the top of each handle is 320–330 mm above it
+- **WHEN** H is 400 mm, T is 20 mm and the outer depth 440 mm
+- **THEN** the apron edge is at 346.7 mm, the handle runs from 253.3 to 306.7 mm, is 220 mm long and made of 2 layers
+
+#### Scenario: Thin boards
+- **WHEN** T is 12 mm
+- **THEN** the wooden handle has 3 layers and projects 36 mm
+
+### Requirement: Bought handles
+Bought handles SHALL be bolted through with M6 bolts, washers and cap nuts into a backing
+block glued inside, at the same height as wooden ones.
 
 #### Scenario: Bought handles
 - **WHEN** the user picks bought handles
-- **THEN** the materials list M6 bolts, washers and two backing blocks
+- **THEN** the materials list M6 bolts, washers, cap nuts and two backing blocks, and the minimum inner length and the tray travel are measured between the backing blocks
 
 ### Requirement: Lid stiffness and strength are checked
 The page SHALL check the middle lid board under 1 kN in the middle: span = inner length
-+ T, width = whole lid when glued, one board when shiplapped, E = 9000 MPa, limit L/200,
-and bending stress at most 14 MPa, warning when either fails.
++ T, width = whole lid when glued, one board with I reduced by 10% when shiplapped,
+E = 9000 MPa, limit L/200, bending stress at most 14 MPa. A failed check SHALL say what
+helps: edge gluing or a thicker board.
 
 #### Scenario: Shiplapped lid fails
-- **WHEN** gluing is off, the board is 200×20 mm and the inner length 760 mm
-- **THEN** the page shows a deflection of about 8.2 mm against 3.9 mm and warns
+- **WHEN** edge gluing is off, the board is 200×20 mm and the inner length 760 mm
+- **THEN** the page shows a deflection of about 9.2 mm against 3.9 mm and suggests edge gluing or a thicker board
 
 #### Scenario: Glued lid passes
 - **WHEN** the lid is glued to 460 mm with T = 20 mm and the inner length 760 mm
 - **THEN** the deflection is under 3.9 mm and the stress under 14 MPa
 
 ### Requirement: Bottom and cleats are checked
-The page SHALL check one bottom board under 1 kN in the middle (limit L/300, E = 9000 MPa)
-and size the cleat screws for twice the loaded chest (tool load default 80 kg, editable)
-at 0.5 kN per screw, and show the empty mass at 500 kg/m³ and the loads used.
+The page SHALL check the narrowest bottom board under 1 kN in the middle, span = inner
+depth minus one cleat projection, E = 9000 MPa, limit L/200 (a chest bottom, not a
+floor), size the cleat screws for twice the loaded chest (tool load default 80 kg,
+editable) at 0.5 kN per screw, and show the empty mass at 500 kg/m³ and the loads.
+
+#### Scenario: Default bottom
+- **WHEN** the inner depth is 400 mm with 30 mm cleats and the narrowest board is 148 mm
+- **THEN** the bottom check shows about 1.2 mm against 1.85 mm and passes
 
 #### Scenario: Check visible
 - **WHEN** a chest is found
 - **THEN** the page shows the lid and bottom checks against their limits, the cleat screw count, the loads and the empty mass in kg
+
+### Requirement: Edges and visible fasteners
+All edges SHALL get one 1.5 mm chamfer, also on the finger corners after flushing, and
+none along finger joint lines; only the skirt bottom (3 mm) and the front apron grip
+(45° × 5 mm) differ. Skirt nails SHALL be one line at mid-overlap, ≤ 150 mm apart, the
+first ≥ 2T from a corner; apron nails and screws one line T/2 below the lid top.
+
+#### Scenario: Skirt nails in line
+- **WHEN** the skirt overlaps the carcass by 80 mm on an 801 mm front
+- **THEN** the work plan places the skirt nails 40 mm above the bottom of the walls, evenly at most 150 mm apart, the outer ones at least 40 mm from the corners
+
+### Requirement: One hardware material
+Hinges, screws, chain and visible nails SHALL be one material and colour, blackened steel
+by default; visible nails cut or forged. Hinges SHALL sit at equal distances from both ends
+and at least 20 mm from a lid batten.
+
+#### Scenario: Hardware list
+- **WHEN** the materials list is shown
+- **THEN** every metal part is listed as blackened steel and the hinge positions are dimensioned on the top view
+
+### Requirement: Board selection and grain
+The work plan SHALL put the best board on the front and the lid, cut the strips of one wall
+consecutively from one board with matching grain direction, put the full strip at the top
+of each wall and the lid remainder at the back by the hinges, and keep knots at least
+T + 20 mm from piece ends and out of hinge mortises.
+
+#### Scenario: Board marks
+- **WHEN** the board layout is shown
+- **THEN** the front and lid pieces are marked as the show face and the work plan states the knot rule
+
+### Requirement: Finish
+The default finish SHALL be hard wax oil outside and shellac or wax inside and on the
+trays, without linseed oil inside and without finish on glue surfaces. Milk paint MAY be
+chosen, then in one colour on the whole outside including skirt and apron.
+
+#### Scenario: Default finish
+- **WHEN** a chest is found
+- **THEN** the materials list hard wax oil and shellac or wax, and the work plan finishes before final assembly of the lid hardware
 
 ### Requirement: Work plan for hand tools
 The work plan SHALL require wood acclimatised to 8–12% moisture, joint and glue the panels

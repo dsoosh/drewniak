@@ -52,34 +52,43 @@ wysokości, a zablokowaną wysokość bez układu odrzucamy z podpowiedzią najb
 Przód i tył trzymają skrajne wczepy, więc mają długość zewnętrzną, a boki głębokość
 zewnętrzną. Wnętrze = wymiar zewnętrzny − 2T.
 
-Ściana klejona z pasów: najpierw klejenie i fugowanie (2 mm zapasu na krawędź), potem
-trasowanie. Szew może wypaść w środku wczepu, bo jest już pełnym złączem wzdłuż włókien.
+Ściana klejona z pasów: najpierw klejenie i fugowanie (pas pełny traci 2 mm na krawędzi,
+resztówka dostaje 2 mm zapasu), potem trasowanie. Bez klejenia krawędzi ściana to k desek
+na sobie bez kleju w szwie, każda deska z własnym układem wczepów (tradycyjna skrzynia
+deskowa). Elementy z wczepami cięte o 1 mm dłuższe (T + 0,5 mm z każdej strony). Szew może wypaść w środku wczepu, bo jest już pełnym złączem wzdłuż włókien.
 
-Domyślnie (T = 20, H = 400, jedna taca): 60 wczepów korpusu, 12 cokołu, 28 tacy i 6
-fartucha, razem 106. Klejenie korpusu naraz przekracza czas otwarty zwykłego PVA: klej o
+Domyślnie (T = 20, H = 400, jedna taca 110 mm): 60 wczepów korpusu, 12 cokołu, 28 tacy
+i 6 fartucha, razem 106. Klejenie korpusu naraz przekracza czas otwarty zwykłego PVA: klej o
 czasie otwartym ≥ 15 min, montaż na sucho, ściski z przekładkami, kontrola przekątnych.
 Szacunek czasu: 10 min na wczep z trasowaniem i dopasowaniem, pokazywany na stronie.
 
 ### Wieko
 
 - Deski wzdłuż długości, sklejone (z klejeniem) albo na zakładkę (bez klejenia).
-- Fartuch z przodu i po bokach, wysokość mierzona od wierzchu wieka.
+- Fartuch z przodu i po bokach, wysokość 2w + T od wierzchu wieka (dolna krawędź na
+  siatce wczepów korpusu).
 - Luz: 3 mm na bokach, z przodu 3 mm + 1% głębokości wieka. Tył trzymają zawiasy, więc
   cała praca wieka w poprzek słojów idzie do przodu.
 - Fartuch przedni ma słoje równolegle do wieka: klej i gwoździe. Boczne fartuchy leżą w
   poprzek słojów wieka: bez kleju, wczep z fartuchem przednim i 2–3 wkręty 5×60 w czoło
   wieka przez otwory podłużne ≥ 1,5% głębokości wieka.
-- Listwy: wkręt stały przy przodzie (tam, gdzie fartuch przedni), otwory podłużne do tyłu.
-- Zawiasy wpuszczane, wkręty ≤ T − 3 mm. Łańcuszek do boku, wkręty na ścinanie.
+- Listwy T × 50, długość = wnętrze − 2 × (3 mm + 1% głębokości wieka), 30 mm od boków.
+  Wkręt stały przy przodzie, otwory podłużne do tyłu; wieko na zakładkę: wkręt stały w
+  osi każdej deski.
+- Zawiasy wpuszczane, skrzydełko ≤ T, wkręty ≤ T − 3 mm. Łańcuszek do bocznej
+  powierzchni listwy wieka i do boku skrzyni, oba wkręty na ścinanie. Za skrzynią potrzeba
+  głębokość wieka × sin 10° + T wolnego miejsca (≈ 100 mm).
 
 ### Tace
 
 - Prowadnica: wysokość ≥ 20 mm, wysięg ≥ grubość ścianki tacy + 6 mm.
 - Dwie tace stopniowane: dolna węższa o dwa wysięgi górnych prowadnic i 4 mm, dolne
-  prowadnice wystają o wysięg górnych + ściankę tacy + 4 mm, więc dolna taca przechodzi
-  między górnymi prowadnicami.
-- Dno tacy na listewkach 10×15 klejonych w tacy, przegródka we wpuście T/3, otwór na dłoń w
-  każdej ściance czołowej z ≥ 25 mm drewna nad nim.
+  prowadnice wystają o wysięg górnych + ściankę tacy + 4 mm. Między prowadnicami listwa
+  prowadząca o wysięgu górnej prowadnicy, żeby dolna taca nie zjechała w bok (luz 2 mm).
+- Dno tacy na listewkach 10×15 przy dwóch przeciwległych ściankach, słoje między nimi,
+  luz 3 mm + 1% przy pozostałych, jeden gwoździk w środku każdej listewki.
+- Przegródka we wpuście T/3. Otwór na dłoń na siatce wczepów tacy (patrz Forma); gdy nad
+  dnem zostaje < 20 mm, wycięcie od góry. Domyślna taca 110 mm (przy 100 mm zostaje 16 mm).
 - Wierzch najwyższej tacy ≥ grubość listwy wieka + 5 mm pod krawędzią ścian.
 
 ### Kontrole
@@ -89,9 +98,10 @@ stronie jako kontrola rozsądku.
 - Wieko: deska środkowa, oparta tylko na bokach (przód i tył mają podparcie ciągłe, a
   listwy przy końcach nie pomagają w środku przęsła). Rozpiętość = długość wewnętrzna + T,
   1 kN w środku, szerokość całego wieka przy klejeniu, jednej deski przy zakładce. L/200
-  i σ ≤ 14 MPa. Domyślne wieko sklejone: 3,6 mm i 6,4 MPa. Na zakładkę: 8,2 mm i
-  14,6 MPa → ostrzeżenie.
-- Dno: jedna deska, 1 kN w środku (ktoś wejdzie do skrzyni), L/300.
+  i σ ≤ 14 MPa. Domyślne wieko sklejone: 3,6 mm i 6,4 MPa. Na zakładkę (I − 10% na
+  wręb zakładki): ≈ 9,2 mm → ostrzeżenie z podpowiedzią „sklej wieko albo grubsza deska”.
+- Dno: najwęższa deska, rozpiętość = wnętrze − wysięg listwy, 1 kN w środku (ktoś wejdzie
+  do skrzyni), L/200, bo to dno skrzyni, nie podłoga. Domyślnie resztówka 148 mm: 1,2 mm.
 - Listwy nośne: wkręty na 2 × ciężar załadowanej skrzyni (narzędzia domyślnie 80 kg),
   0,5 kN na wkręt.
 - Masa pustej skrzyni przy 500 kg/m³.
@@ -118,8 +128,8 @@ zwykle trzeba skrzynię wysunąć. Strona to mówi, zamiast udawać, że się ot
 
 ### Forma
 
-Recenzja agenta `mistrz-rzemieslnik`: wnioski w sekcji „Forma — recenzja rzemieślnika”
-niżej. Zasada repo: ozdobą jest połączenie, krawędzie złamane 1–2 mm, bez profili.
+Zasada repo: ozdobą jest połączenie, krawędzie złamane 1–2 mm, bez profili. Szczegóły w
+sekcji „Forma — recenzja rzemieślnika” niżej.
 
 ### Strona
 
@@ -128,6 +138,30 @@ PDF). Banan: import `banana` z `szkielet/js/draw.js` do rzutów i siatka banana 
 (eksport `bananaMesh` z `view3d.js` albo jego kopia, jeśli eksport ciągnie zależności
 szkieletu). Stan w localStorage i w `#hash` (base64 JSON, jak `encodeState` w szkielecie).
 
+### Forma — recenzja rzemieślnika
+
+Recenzja `mistrz-rzemieslnik` (przeliczona dla wszystkich 966 konfiguracji T 12–32,
+H 250–700), przyjęta w specu:
+
+- **Jedna siatka.** w = szerokość wczepu korpusu. Wierzch cokołu, krawędź fartucha, uchwyt
+  i szwy leżą na k·w albo (k + ½)·w. Bez tego linie wypadały tuż obok granic wczepów
+  (pasek 4 mm drewna czołowego nad cokołem, fartuch z wczepami 20 mm nad wczepami 26,7).
+- **Fartuch** 2w + T z 3 wczepami: szerokość (2w + T)/3 zawsze w [T, 4T/3]. Usuwa też
+  sprzeczność „40–80 mm i ≥ 3T” dla T ≥ 27.
+- **Cokół** k·w + 4 mm z własnym poprawnym układem, 60–150 mm, najbliżej H/5.
+- **Uchwyt** 2w wysoki, długość 0,5 głębokości (140–240), z ceil(30/T) warstw (przy T = 12
+  dwie warstwy dawały 24 mm wysięgu). Wierzch ≥ 40 mm pod fartuchem — 40 to wymóg
+  ciesielski (knykcie w rękawicy), siatkę dokłada rzemieślnik.
+- **Proporcje** liczone na obrysie całości, nie na samych ścianach.
+- **Cień zamiast profilu.** Cokół i fartuch są nałożone (wymaga tego konstrukcja), jedyną
+  linią cienia jest szczelina pod fartuchem. Fazka 1,5 mm wszędzie, funkcyjne tylko na
+  spodzie cokołu i chwycie fartucha przedniego.
+- **Łączniki w liniach**, jeden materiał okuć (stal czerniona), dobór desek na front i
+  wieko, olejowosk na zewnątrz, szelak lub wosk w środku.
+
+Szew klejenia, który przy danych deskach nie trafia w siatkę, przesuwamy resztówką o
+≤ w/2 kosztem jednego cięcia wzdłuż; w ocenie kandydatów to rozstrzyga dopiero remis.
+
 ## Risks / Trade-offs
 
 - [Kopia algorytmu rozkroju rozjedzie się ze skrzynką] → testy rozkroju w `tests/skrzynia.test.js`; ujednolicenie jako następna zmiana.
@@ -135,4 +169,5 @@ szkieletu). Stan w localStorage i w `#hash` (base64 JSON, jak `encodeState` w sz
 - [Wczepy, które nie pasują, dają szczeliny i słaby klej] → narożnik próbny, tolerancja 0,5 mm na zestruganie, montaż na sucho, klej z długim czasem otwartym.
 - [106 wczepów to dużo pracy] → strona pokazuje liczbę i szacunek czasu, poziom trudności 4.
 - [Uproszczone kontrole] → ostrożne E, przypadek pesymistyczny, jawne zastrzeżenie.
+- [Siatka wczepów ogranicza wysokości cokołu, fartucha i uchwytu do wartości niecałkowitych (73,3 mm)] → wymiary na rysunkach z dokładnością 0,1 mm, w planie pracy trasowanie od wczepów, nie od miarki.
 - [Wieko otwiera się tylko po wysunięciu spod stołu] → komunikat na stronie, cokół wystający 4 mm ułatwia przesuwanie.

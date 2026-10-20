@@ -139,7 +139,10 @@ Dla konstrukcji z desek robionych **wyłącznie narzędziami ręcznymi**:
 - Wczepy proste: liczba nieparzysta, szerokość od T do 1,5T, przód i tył trzymają
   skrajne wczepy u góry i u dołu. Duże klejenia wczepów: klej o czasie otwartym ≥ 15 min,
   montaż na sucho, kontrola przekątnych.
-- Długości cięć okrągłe, co 10 mm.
+- Długości cięć okrągłe, co 10 mm — dotyczy wymiarów konstrukcji; naddatki (wczepy T + 0,5,
+  fugowanie, luz ramy) dodaje się do nich bez zaokrąglania.
+- Sosna z tartaku bez klasy: w kontrolach ugięć E = 9000 MPa (C24 z §7 tylko dla drewna
+  klasyfikowanego).
 - Skala trudności 1–5: najtrudniejsza technika, +1 gdy ≥ 4 techniki na poziomie ≥ 2.
 
 ## 9. Przepisy (Polska, stan 2026)
