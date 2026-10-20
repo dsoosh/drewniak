@@ -29,36 +29,46 @@ obniżonych bokach. Wieko na zawiasach wisi na wkrętach w krawędzi ścianek (�
 
 ### Wczepy i siatka
 
-`fingerLayout` importowany ze skrzyni, ta sama reguła i ta sama zasada „przód i tył trzymają
-skrajne”. Wszystkie linie poziome przecinające narożnik (linia cięcia wieka, obniżone boki,
-wysokość obrzeża pokrywki) leżą na granicy wczepu k·w, więc cięcie i obniżenie nie przecinają
-żadnego wczepu. Wymiar ścianek to wysokość korpusu; dla wieka odcinanego to wysokość zamkniętego
-pudełka.
+`fingerLayout` importowany ze skrzyni, ta sama reguła i zasada „przód i tył trzymają skrajne” w
+korpusie. Linie przecinające narożnik (obrzeże, spód listewek) leżą na granicy k·w; cięcie wieka
+w środku pasa. Ścianki, obrzeże i zamknięte pudełko zawsze z jednej szerokości deski — klejenie
+ścianki przecięłoby wczepy, a pudełko ćwiczebne tego nie potrzebuje.
 
 ### Dno i panele
 
-Rowek T/2 × T/2 w środku pasa dolnego wczepu: w = T…1,5T, więc rowek mieści się w pasie z
-zapasem ≥ T/4 nad i pod. W bokach rowek przelotowy (kończy się w gnieździe pod wczepem przodu),
-w przodzie i tyle zatrzymany T/2 od końców, żeby nie wyszedł na czole wczepu. Panel z deski T
-z wrębem na krawędziach do pióra T/2. Słoje dna wzdłuż długości, luz 1% + 1 mm w poprzek.
-Panele szersze od deski klejone z pasów (reszta ≥ 20 mm, małe pudełko).
+Rowek z typowego żelaza strugnicy (3, 4, 5, 6, 8, 10 mm, najszersze ≤ T/2), głębokość
+max(T/2, luz + 3 mm) (2 mm poniżej T = 10), najwyżej T − 3. Luz w poprzek słojów 1% (miękkie)
+albo 1,5% (twarde) + 1 mm, wzdłuż 1 mm. Przy T = 6 rowek nie utrzyma żadnego sensownego dna, więc
+deski od 8 mm. Rowek dna w pasie dolnego wczepu, ≥ 4 mm nad spodem, przelotowy w bokach,
+zatrzymany T/2 przed końcem w przodzie i tyle (kończy się w gnieździe pod wczepem). Dno z wrębem od
+góry: spód panelu na dolnej krawędzi rowka, pudełko stoi na ściankach. Płyty z jednej deski albo
+z pasów symetrycznych (dwa równe, albo środek pełny i dwa równe skrajne ≥ 40 mm).
 
-### Zamknięcia
+### Zamknięcia (po recenzji obu mistrzów)
 
-- **Pokrywka nasadzana:** obrzeże 3w z 3 wczepami po w (ten sam rytm co korpus), panel w rowku
-  pasa górnego obrzeża. Listewki T/2 grube i w + 6 mm wysokie, klejone od środka korpusu na pasie
-  górnego wczepu, wystają 6 mm ponad ścianki.
-  Przy 2w obrzeże miałoby wczepy 2w/3 < T poza przypadkiem w = 1,5T, więc 3w.
-- **Przykrywka wsuwana:** rowki w przodzie i tyle w pasie górnego wczepu, przelotowe (widać je na
-  czołach — tak wygląda takie pudełko). Boki kończą się na H − w, czyli na granicy wczepu; górny
-  pas narożnika należy do przodu i tyłu, więc obniżenie boków nie zmienia wczepów. Panel ze
-  słojami wzdłuż, pióro na krawędziach, wycięcie na palec przy jednym końcu, klocek zatrzymujący
-  pod drugim (klejony do panelu, opiera się o bok od środka).
-- **Wieko odcinane:** zamknięte pudełko z panelem górnym w rowku pasa górnego wczepu, cięcie
-  piłą po granicy k·w (k ≥ 2 najbliżej H/3), rzaz z części wieka, struganie obu powierzchni.
-  Zawiasy wpuszczane, skrzydełko ≤ T, wkręty ≤ T − 3 mm (3×8 przy T = 12).
-- **Przykrywka płaska:** panel 3 mm większy z każdej strony, dwie listewki w poprzek słojów od
-  spodu, wchodzą do środka z luzem 1 mm, klejone tylko w środkowej ⅓ (panel pracuje).
+- **Pokrywka nasadzana:** obrzeże 3w z 3 wczepami po w, ale skrajne trzymają boki (B P B), więc na
+  zamkniętym pudełku przemienność idzie przez styk (rzemieślnik; obrzeże nic nie dźwiga). Tylko
+  przy n ≥ 5 w korpusie, bo przy n = 3 pokrywka byłaby równa korpusowi. Listewki T/2 × (w + 6),
+  dwie L − 2T i dwie D − 3T, wręb 0,5 mm na wystającej części, fazka 1 mm. Płyta wierzchnia z
+  wrębem od spodu, pióro przy wierzchu, wierzch cofnięty o T/4–T/2 (linia cienia). Zlicowanie, o
+  które prosił rzemieślnik, wymagałoby wrębu z obu stron i i tak zostawiłoby szczelinę na luz, więc
+  przyjęte cofnięcie, które proponował ciesielski.
+- **Przykrywka wsuwana:** wierzch równo ze ściankami, pióro przy spodzie (wrąb od góry). Jeden bok
+  obniżony do H − T, czyli do spodu przykrywki, drugi bok pełny z rowkiem, w który wchodzi koniec
+  przykrywki (ciesielski: przy dwóch niskich bokach klocek więzi przykrywkę). Obniżenie leży w
+  górnym pasie, gdzie bok ma gniazdo pod wczep przodu, więc nie przecina wczepu i nie musi być na
+  siatce. Rowki przodu i tyłu przelotowe przy niskim boku, zatrzymane przy wysokim. Bez klocka;
+  wnęka na palec 24 × 2,5·T/3, T/3 głęboka.
+- **Wieko odcinane:** cięcie w środku pasa, który trasujemy na w + rzaz + 1 mm, więc po rzazie i
+  struganiu obie połówki mają w/2 i po zamknięciu czytają się jak jeden wczep (ciesielski: cięcie po
+  granicy wycina lico klejowe; rzemieślnik: pasy mają wyjść równe). Każda część ≥ 2,5w, czyli dwa
+  lica klejowe na narożnik; wieko (k + ½)w, k = max(2, ⌊0,3n⌋); tylko n ≥ 5 i T ≥ 8. Rzaz piły
+  ręcznej osobnym parametrem (domyślnie 1 mm). Zawiasy wpuszczane z ogranicznikiem 95° (wieko
+  odchylone za pion wyrywałoby wkręty), skrzydełko ≤ T − 2, długość z szeregu najbliżej L/8,
+  odsunięte o max(T + w, w + 10) od końca, wkręty ≤ T/4 średnicy, mosiężne. Fazka chwytu 45° T/3
+  na środkowej ⅓ przodu wieka.
+- **Przykrywka płaska:** wysięg max(4, round(T/2)), listewki T × 1,5T, lica zewnętrzne 1 mm od
+  boków od środka (ustala w obu kierunkach), klejone w środkowej ⅓.
 
 ### Szukanie wymiarów
 
@@ -81,4 +91,5 @@ podgląd w zakładce.
 - [Import z `skrzynia/js/build.js` wiąże pudełko ze skrzynią] → importujemy tylko `fingerLayout`
   i `boards.js`; testy pudełka łapią zmianę reguły.
 - [Drukarka skaluje stronę] → pasek kontrolny 100 mm i napis „drukuj w skali 100%”.
-- [Rowek przelotowy przykrywki wsuwanej widać na czołach] → przyjęte, to cecha tego typu pudełka.
+- [Rowek przelotowy przykrywki wsuwanej widać na czołach przy niskim boku] → przyjęte, to cecha tego typu pudełka.
+- [Deski 8 mm ograniczają szerokość pudełka (rowek)] → strona odrzuca takie pudełko z wyjaśnieniem; od 10 mm ograniczenie znika przy typowych wymiarach.

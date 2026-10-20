@@ -1,8 +1,8 @@
 ## 1. Generator
 
-- [ ] 1.1 `pudelko/js/build.js`: `defaultState()`, walidacja, korpus z wczepami (import `fingerLayout`), dno w rowku, cztery zamknięcia, panele klejone, części do listy cięć; testy w `tests/pudelko.test.js`: 90/12 → 5 po 18, 241/151 mm, rowek 6×6 na 6–12 mm zatrzymany w przodzie i tyle, obrzeże 54 mm z 3 wczepami, listewki 6 mm, boki 72 mm przy wsuwanej, linia cięcia 54 mm, przykrywka płaska 246×156 i listewki 124 mm
+- [ ] 1.1 `pudelko/js/build.js`: `defaultState()`, walidacja, korpus z wczepami (import `fingerLayout`), ścianki z jednej deski, rowki z żelaz strugnicy i głębokością od luzu, dno pływające, płyty symetryczne, cztery zamknięcia według speca; testy w `tests/pudelko.test.js` na wszystkie liczby ze scenariuszy (90/12 → 5 po 18, 241/151, rowek 6 na 6–12, płyta 6 mm pod krawędzią, obrzeże B P B 54 mm, listewki 216/114 × 6 × 24, boki 78/90, wnęka 24×10×4, trasowanie 92 i wieko 45/45, zawiasy 30 mm 30 od końca, przykrywka płaska 252×162 z listewkami 12×18×124, T 8 i 330 odrzucone, T 14 → rowek 6)
 - [ ] 1.2 Szukanie wymiarów z blokadami i z desek (cel proporcje i pojemność), za mało deski z podpowiedzią; testy: wszystko zablokowane, nic zablokowane w tolerancji, za małe deski, czas < 1 s
-- [ ] 1.3 Okucia (zawiasy, wkręty ≤ T − 3), kontrole dna i panelu, liczba wczepów i czas, trudność dla każdego zamknięcia, narzędzia, plan pracy, geometria; testy: plan wieka odcinanego, wkręty 3×8 przy T 12, brak NaN
+- [ ] 1.3 Okucia (zawiasy z ogranicznikiem, wkręty ≤ T/4), kontrole dna i panelu wzdłuż słojów, ostrzeżenia L/T, liczba wczepów i czas, trudność dla każdego zamknięcia (+1 przy T 8), narzędzia ze strugnicą i żelazem, plan pracy, geometria; testy: plan wieka odcinanego, dno T 8 500×200 ponad limitem, cięższe ostrzeżenie T 20 L 200, brak NaN
 
 ## 2. Strona
 
