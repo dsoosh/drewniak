@@ -72,7 +72,8 @@ export function viewSVG(res, view, P) {
   const floorV = SKIRT_DROP;                                  // floor line at z = −drop → v = +drop
   const bx = u1 + fs * 2, by = isTop ? v1 + fs * 9 : floorV; // banana on the floor beside the chest
   const W = u1 - u0 + 2 * pad + 230, Hh = v1 - v0 + 2 * pad + (isTop ? fs * 10 : 0);
-  let s = svgOpen(u0 - pad, v0 - pad, W, Hh, P);
+  const extraTop = isTop ? fs * 4 : 0;
+  let s = svgOpen(u0 - pad, v0 - pad - extraTop, W, Hh + extraTop, P);
   if (!isTop) s += `<line x1="${f(u0 - pad)}" y1="${f(floorV)}" x2="${f(u1 + 230 + pad)}" y2="${f(floorV)}" stroke="${P.muted}" stroke-width="${f(fs / 10)}"/>`;
   for (const it of items) {
     const c = COLOR(it.b, P);
