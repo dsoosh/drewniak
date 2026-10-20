@@ -556,13 +556,15 @@ export function build(state) {
   const warnings = [];
   for (const c of chk) if (!c.ok) warnings.push(`${c.name}: ${fmt1(c.value)} ${c.unit} przy granicy ${fmt1(c.limit)} ${c.unit}. ${c.hint}`);
   if (d.trays.length && d.free < MIN_FREE) warnings.push(`Pod tacami zostaje ${Math.round(d.free)} mm wolnej wysokości nad dnem, mniej niż ${MIN_FREE} mm.`);
-  if (s.boards.T >= 24 && d.H < 300 && d.skirt.h > 0.3 * d.H) warnings.push(`Cokół ${fmt1(d.skirt.h)} mm to ponad 0,3 wysokości ściany — skrzynia wygląda ciężko u dołu.`);
+  if (d.skirt.h > 0.27 * d.H) warnings.push(`Cokół ${fmt1(d.skirt.h)} mm to ${fmt1(d.skirt.h / d.H * 100)}% wysokości ściany — skrzynia wygląda ciężko u dołu. Pomoże wyższa skrzynia albo cieńsze deski.`);
   if (found.fallback) warnings.push('Żadna skrzynia z tych desek nie przechodzi kontroli; pokazana przekracza granice najmniej.');
   const notes = [];
   const t = d.total, dev = Math.max(Math.abs(t.D / t.L - 0.55), Math.abs(t.H / t.L - 0.6));
   const LIMIT_NAME = { chest: 'deski skrzyni', tray: 'deski na tace' };
   if (found.limitedBy) notes.push(`Większą skrzynię ogranicza materiał: ${LIMIT_NAME[found.limitedBy]}.`);
-  if (s.goal === 'proportions' && dev > 0.05) notes.push(`Proporcje obrysu odbiegają od 1 : 0,55 : 0,6 o ${fmt1(dev * 100)}% (głębokość ${(t.D / t.L).toFixed(2).replace('.', ',')}, wysokość ${(t.H / t.L).toFixed(2).replace('.', ',')})${found.limitedBy ? ` — ograniczają je ${LIMIT_NAME[found.limitedBy]}` : ' — ograniczają je blokady, tace albo kontrole wieka i dna'}.`);
+  const r2 = (v) => v.toFixed(2).replace('.', ',');
+  if (s.goal === 'proportions' && dev > 0.05) notes.push(`Proporcje obrysu poza zakresem: głębokość ${r2(t.D / t.L)} zamiast 0,55, wysokość ${r2(t.H / t.L)} zamiast 0,6 długości${found.limitedBy ? ` — ograniczają je ${LIMIT_NAME[found.limitedBy]}` : ' — ograniczają je blokady, tace albo kontrole wieka i dna'}.`);
+  if (t.H > 0.8 * t.L) notes.push(`Skrzynia jest wysoka i wąska: wysokość ${r2(t.H / t.L)} długości. Stoi mniej stabilnie i wygląda jak szafka.`);
   const behind = d.lid.depth * Math.sin((10 * Math.PI) / 180) + T;
   notes.push(`Żeby otworzyć wieko na 100°, za skrzynią potrzeba około ${Math.round(behind / 10) * 10} mm wolnego miejsca.`);
   if (s.clear && d.H + d.lid.depth > s.clear) notes.push(`Pod stołem (${s.clear} mm) wieko się nie otworzy: potrzeba ${Math.round(d.H + d.lid.depth)} mm. Skrzynię trzeba wysunąć.`);

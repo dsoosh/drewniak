@@ -29,9 +29,9 @@ depth over the skirt, height from the floor to the top of the lid) is closest to
 - **THEN** the proportion is computed on the total height from the floor to the top of the lid
 
 ### Requirement: The page says what limits the chest
-When the proposed outline is outside ±0.05 of the proportions, or a better candidate failed
-only because of one material, the page SHALL say so and name the material (chest boards or
-tray boards). When no chest passes the checks, the proposal SHALL be the one exceeding its
+When the proposed outline is outside ±0.05 of the proportions (giving both ratios against
+0.55 and 0.6), when the height over the outline exceeds 0.8 of the length for any goal, or
+when a better candidate failed only because of the tray boards, the page SHALL say so. When no chest passes the checks, the proposal SHALL be the one exceeding its
 limits the least.
 
 #### Scenario: Tray boards limit the chest
@@ -228,7 +228,7 @@ height closest to H/5; without such a height, the one closest to H/5.
 - **THEN** the skirt is 3w + 4 = 87.7 mm with 3 fingers of 29.2 mm rather than 101.6 mm with 5 fingers of 20.3 mm
 
 #### Scenario: Heavy skirt warning
-- **WHEN** T is at least 24 mm and H is under 300 mm and the skirt comes out above 0.3 H
+- **WHEN** the skirt comes out above 0.27 H, for any T and H (for example T 32, H 320, skirt 118 mm)
 - **THEN** the page warns about the proportion
 
 ### Requirement: Skirt is fitted as a frame
