@@ -165,6 +165,33 @@ test('long building staggers plate and batten joints and warns', () => {
   for (let i = 1; i < ends.length; i++) assert.notEqual(Math.round(ends[i]), Math.round(ends[i - 1]));
 });
 
+test('workshop plates are joined to save stock, joints on studs and staggered', () => {
+  const ex = EXAMPLES.find((e) => e.id === 'warsztat');
+  const s = ex.make(), r = build(s), f = report(r, s).timber.find((t) => t.sec === 'f45');
+  assert.ok(f.count <= 57 && f.waste < 10000, `${f.count} szt., odpad ${f.waste}`);
+  assert.ok(r.members.filter((m) => m.name === 'Ściąg').every((m) => m.len === 4000));
+  assert.ok(r.warnings.some((w) => /łączone z dwóch kawałków/.test(w)));
+  for (const id of ['front', 'back', 'left', 'right']) {
+    const mine = r.members.filter((m) => m.wall === id);
+    const us = (m) => m.upoly.map(([u]) => u);
+    const studs = mine.filter((m) => !['plate', 'nog', 'header', 'sill'].includes(m.kind)).map((m) => Math.min(...us(m)) + 22.5);
+    const joints = mine.filter((m) => m.note.includes('styk na słupku')).map((m) => Math.min(...us(m))).filter((u) => u > (id === 'front' || id === 'back' ? 1 : 96));
+    if (id === 'left' || id === 'right') joints.push(2000);   // rim joist joint below
+    for (const j of joints) if (j !== 2000) assert.ok(studs.some((c) => Math.abs(c - j) < 0.5), `${id}: styk ${j} nie na słupku`);
+    for (let i = 0; i < joints.length; i++) for (let k = i + 1; k < joints.length; k++) assert.ok(Math.abs(joints[i] - joints[k]) > 600, `${id}: ${joints}`);
+  }
+  const off = build(ex.make() && (() => { const t = ex.make(); t.walls.splitPlates = false; return t; })());
+  assert.ok(off.members.filter((m) => m.kind === 'plate' && m.wall === 'back').every((m) => m.len === 4000 || m.len === 2102));
+  assert.equal(off.members.filter((m) => m.name === 'Legar czołowy').length, 2);
+});
+
+test('shed plates stay whole when joining saves nothing', () => {
+  const s = EXAMPLES.find((e) => e.id === 'szopa').make(), r = build(s);
+  assert.ok(!r.members.some((m) => m.note.includes('styk na słupku')));
+  assert.equal(r.members.filter((m) => m.name === 'Legar czołowy').length, 2);
+  assert.equal(fresh().walls.splitPlates, true);
+});
+
 test('ties: checked with a ceiling when they can carry one, partitions kept below them', () => {
   const house = build(EXAMPLES.find((e) => e.id === 'dom70').make());
   assert.ok(house.checks.some((c) => c.name.startsWith('Ściąg 45×195 (ciężar własny + sufit') && c.ok));

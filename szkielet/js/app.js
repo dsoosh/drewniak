@@ -44,6 +44,7 @@ const FIELDS = [
     ['walls.sheathT', 'Grubość OSB na ściany [mm]', 'sel', { options: [12, 15, 18, 22, 25, 30].map((t) => [t, String(t)]), num: true }],
     ['walls.sheathBelow', 'Płyta zachodzi na ramę', 'num', { step: 5, show: (s) => s.walls.sheathe }],
     ['walls.sheatheIn', 'Poszycie OSB od środka', 'chk'],
+    ['walls.splitPlates', 'Łącz oczepy i podwaliny, gdy mniej odpadu', 'chk', { note: 'także gdy mieszczą się w kantówce; styki na słupkach i nad belką, rozsunięte o pole' }],
     ['walls.doubleFrom', 'Podwójne słupki przy otworach od', 'num', { step: 10, note: 'węższe otwory: jeden słupek z każdej strony (także słupek z siatki), nadproże między nimi' }],
   ]],
   ['Rama i podłoga', [

@@ -50,7 +50,7 @@ export function defaultState() {
     dims: { L: 3101, W: 2500 },
     base: { maxSpan: 1500, anchorMax: 2500, beamSec: 'b100' },
     floor: { joistMax: 600, sheetT: 30, splitJoists: false },
-    walls: { h0: 2350, studMax: 625, nogStep: 800, nogStagger: true, doubleFrom: 1200, sheatheIn: false, sheathT: 12, sheathBelow: 50, sheathe: true },
+    walls: { h0: 2350, studMax: 625, nogStep: 800, nogStagger: true, doubleFrom: 1200, sheatheIn: false, sheathT: 12, sheathBelow: 50, sheathe: true, splitPlates: true },
     roof: {
       type: 'mono', pitch: 13.9, highSide: 'back', ovhEave: 300, ovhGable: 300,
       rafterMax: 450, battenMax: 420, battenSec: 'l50', ties: true, splice: 'scab', rafterSec: 'f45',

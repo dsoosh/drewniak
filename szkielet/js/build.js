@@ -6,6 +6,7 @@
 // from outside, from its left outer corner.
 
 import { SECTIONS, WALL_IDS, WALL_NAMES } from './model.js';
+import { packBars } from './cut.js';
 
 const T = 45;          // timber thickness
 const D = 95;          // timber depth = wall depth
@@ -16,9 +17,26 @@ const SHEET_W = 1250, SHEET_H = 2500;
 const R = Math.round;
 const EPS = 1e-6;
 
+// Plates and rim joists that fit the stock are also tried in two pieces: a 3.8–4 m plate alone
+// in a 6 m bar leaves ~2 m that no stud or rafter fits into. The variant needing fewer 45×95
+// bars wins; on a tie the members stay whole.
 export function build(s) {
+  const whole = buildOnce(s, false);
+  if (!s.walls.splitPlates) return whole;
+  const joined = buildOnce(s, true);
+  if (joined.members.length === whole.members.length) return whole;
+  const bars = (r) => packBars(r.members.filter((m) => m.sec === 'f45').map((m) => ({ len: m.len })), s.stock.f45.len, s.kerf).units;
+  if (bars(joined) >= bars(whole)) return whole;
+  joined.warnings.push('Oczepy, podwaliny i legary czołowe łączone z dwóch kawałków, żeby z kantówki nie zostawały ~2 m odpadu: styki na słupkach i nad belką, rozsunięte o pole; oczepy spinaj płaskownikiem (przełącznik w parametrach ścian).');
+  return joined;
+}
+
+function buildOnce(s, halve) {
   const { L, W } = s.dims;
   const out = { members: [], wallSheets: [], floorSheets: [], cover: [], checks: [], warnings: [], walls: {}, info: {} };
+  // joints of joined plates per wall line (in U), kept apart by a stud bay
+  out.info.halve = halve;
+  out.info.plateJoints = { front: [], back: [], left: [], right: [] };
   const a = (s.roof.pitch * Math.PI) / 180, tn = Math.tan(a), cs = Math.cos(a), sn = Math.sin(a);
   BEAM = SECTIONS[s.base.beamSec || 'b100'].h;
   RD = SECTIONS[s.roof.rafterSec || 'f45'].h;
@@ -114,7 +132,10 @@ export function build(s) {
   joistY.sort((p, q) => p - q);
   const beamCenters = beamX.map((x) => x + BEAM / 2);
   // rim joists across the ends carry the gable-wall plates; long joists butt into them
-  for (const x0 of [0, L - T]) for (const [y0, y1] of splitEven(0, W, s.stock.f45.len))
+  // joined: halved over the transverse beam it lies on; the gable wall above keeps its joints clear
+  const rimHalf = halve && W <= s.stock.f45.len && W > s.stock.f45.len / 2;
+  if (rimHalf) for (const id of ['left', 'right']) out.info.plateJoints[id].push(W / 2);
+  for (const x0 of [0, L - T]) for (const [y0, y1] of rimHalf ? [[0, W / 2], [W / 2, W]] : splitEven(0, W, s.stock.f45.len))
     add({ kind: 'joist', sec: 'f45', len: y1 - y0, group: 'floor', name: 'Legar czołowy', note: y1 - y0 < W ? 'pod ścianą szczytową, styk nad belką' : 'pod ścianą szczytową', shape: box('xy', x0, y0, x0 + T, y1, BEAM, BEAM + D) });
   const joistRuns = chooseJoistSplit(T, L - T, beamCenters, s.stock.f45.len, s.floor.splitJoists, joistY.length, s.kerf);
   for (const y0 of joistY)
@@ -285,6 +306,16 @@ export function splitAtSupports(a, b, supports, max) {
   }
   out.push([s, b]);
   return out;
+}
+
+// Splits [a,b] in two on the support nearest its middle, both pieces ≥ 600 mm and the joint
+// more than `gap` from every joint in `avoid`; null when no support qualifies.
+function halveAt(a, b, supports, avoid, gap) {
+  const ok = supports.filter((c) => c >= a + 600 && c <= b - 600 && avoid.every((j) => Math.abs(c - j) > gap));
+  if (!ok.length) return null;
+  const mid = (a + b) / 2, c = ok.reduce((p, q) => (Math.abs(q - mid) < Math.abs(p - mid) ? q : p));
+  avoid.push(c);
+  return [[a, c], [c, b]];
 }
 
 // Joists are one piece when they fit the stock; longer runs are joined over beams, choosing the
@@ -529,20 +560,29 @@ function frameWall(def, openings, extraStuds, s, out) {
     }
   }
 
-  for (const [p, q] of segs) for (const [x0, x1] of splitAtSupports(p, q, full.map((f) => f.u0 + T / 2), s.stock.f45.len))
-    push('plate', 'f45', rect(x0, x1, zb, zb + T), x1 - x0, 'Podwalina ściany', 'płasko');
+  // joined variant: a run that fits the stock but is longer than half of it is made of two pieces
+  const stock = s.stock.f45.len, joints = out.info.plateJoints[def.id] || [];
+  const halved = (runs, a, b, centers) => (out.info.halve && runs.length === 1 && b - a > stock / 2 && halveAt(a, b, centers, joints, step - 1)) || runs;
+  const centersAll = full.map((f) => f.u0 + T / 2);
+  // joined plates meet only over full-height studs, never over a cripple or a stud under a header
+  const tall = verts.filter((v) => v[2] === zb + T && v[3] === ut).map((v) => v[0] + T / 2);
+  for (const [p, q] of segs) {
+    const base = splitAtSupports(p, q, centersAll, stock), runs = halved(base, p, q, tall);
+    for (const [x0, x1] of runs) push('plate', 'f45', rect(x0, x1, zb, zb + T), x1 - x0, 'Podwalina ściany', runs !== base ? 'płasko, styk na słupku' : 'płasko');
+  }
 
   if (flat) {
     const Tp = def.top();
     const centers = full.map((f) => f.u0 + T / 2);
-    const lower = splitAtSupports(A, B, centers, s.stock.f45.len);
-    const joints = lower.slice(1).map(([x0]) => x0);
+    const lower0 = splitAtSupports(A, B, centers, s.stock.f45.len);
+    const lj = lower0.slice(1).map(([x0]) => x0);
     // upper layer joints at least one stud bay away from the lower ones
-    const upper = splitAtSupports(A, B, centers.filter((c) => joints.every((j) => Math.abs(c - j) > step - 1)), s.stock.f45.len);
-    if (joints.length) out.warnings.push(`${name}: ściana dłuższa niż kantówka – oczepy i podwalina łączone na słupkach, styki rozsunięte; spinaj je płaskownikiem.`);
-    for (const [lvl, label, runs] of [[0, 'Oczep (dolny)', lower], [1, 'Oczep (górny)', upper]])
+    const upper0 = splitAtSupports(A, B, centers.filter((c) => lj.every((j) => Math.abs(c - j) > step - 1)), s.stock.f45.len);
+    if (lj.length) out.warnings.push(`${name}: ściana dłuższa niż kantówka – oczepy i podwalina łączone na słupkach, styki rozsunięte; spinaj je płaskownikiem.`);
+    const lower = halved(lower0, A, B, tall), upper = halved(upper0, A, B, tall);
+    for (const [lvl, label, runs, base] of [[0, 'Oczep (dolny)', lower, lower0], [1, 'Oczep (górny)', upper, upper0]])
       for (const [x0, x1] of runs)
-        push('plate', 'f45', rect(x0, x1, Tp - 2 * T + lvl * T, Tp - T + lvl * T), x1 - x0, label, 'płasko');
+        push('plate', 'f45', rect(x0, x1, Tp - 2 * T + lvl * T, Tp - T + lvl * T), x1 - x0, label, runs !== base ? 'płasko, styk na słupku' : 'płasko');
   } else {
     const cuts = [A, ...kinks.filter((k) => k > A && k < B), B];
     for (let i = 0; i + 1 < cuts.length; i++) {
