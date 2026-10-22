@@ -9,4 +9,4 @@
 
 - [x] 2.1 Testy: warsztat ≤ 57 kantówek i odpad < 10 m, styki na słupkach i rozsunięte, wyłączony przełącznik = jak dotąd, szopa bez zmian
 - [x] 2.2 Podgląd: rzuty ścian i 3D warsztatu pokazują styki
-- [ ] 2.3 Recenzja `mistrz-ciesielski`
+- [x] 2.3 Recenzja `mistrz-ciesielski`

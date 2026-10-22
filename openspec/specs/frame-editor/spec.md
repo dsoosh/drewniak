@@ -203,3 +203,11 @@ The page SHALL show the current file name and whether there are unsaved changes.
 #### Scenario: Change after saving
 - **WHEN** the user changes a parameter after saving
 - **THEN** the page shows the file name with an unsaved-changes mark
+
+### Requirement: Plate joining switch
+The wall inputs SHALL include the switch „Łącz oczepy i podwaliny, gdy mniej odpadu”, on by
+default; saved configurations without it SHALL load with it on.
+
+#### Scenario: Default switch
+- **WHEN** a new project or an old save is opened
+- **THEN** plate joining is on
