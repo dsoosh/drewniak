@@ -12,17 +12,26 @@ nie z pakowania.
   dwa buildy, kilkadziesiąt ms.
 - **Kiedy dzielić.** Bieg, który mieści się w kantówce i jest dłuższy niż jej połowa (krótsze
   i tak dobierają się w pary). Styk na słupku najbliższym środka, oba kawałki ≥ 600 mm.
-- **Rozsunięcie styków.** Dla każdej ściany lista styków (w U): legar czołowy pod ścianą
-  szczytową, podwalina, oczep dolny, oczep górny, podwalina trójkąta szczytu. Nowy styk musi
-  być dalej niż jedno pole słupków od każdego wcześniejszego. Brak takiego słupka: bieg w
-  całości.
-- **Legar czołowy** leży na całej długości na belce poprzecznej, więc styk w połowie jest nad
-  belką; zapisany jako styk ściany szczytowej, żeby podwalina nad nim miała styk gdzie indziej.
+- **Rozsunięcie styków.** Dla każdej ściany listy styków per warstwa (w U). Rozsuwane tylko
+  warstwy, które się stykają: legar czołowy – podwalina, oczep dolny – oczep górny, oba oczepy –
+  podwalina szczytu. Podwalina i oczep są 2,3 m od siebie i ich nie rozsuwamy. Brak słupka:
+  bieg w całości.
+- **Słupek styku** tylko pełnej wysokości (nie nad nadprożem, nie pod nadprożem) i co najmniej
+  T od pionowego styku płyt, żeby płyta przechodziła nad stykiem w całości.
+- **Górny oczep** wiąże ścianę: jego kawałki co najmniej dwa pola słupków (1250 mm) od końców.
+- **Mocowanie.** Płaskownik perforowany 40×300 na każdy styk oczepu w zestawieniu; zbicie warstw
+  (2 rzędy gwoździ co 150 mm na 600 mm z każdej strony) i łączniki podwaliny w ostrzeżeniu.
+- **Legar czołowy** leży na całej długości na belce poprzecznej, więc styk jest zawsze nad
+  belką; wypada w połowie pola między legarami najbliżej środka (nie na czole legara).
 - **Bez słupków, ściągów i krokwi.** Słupek pracuje na wyboczenie, więc zawsze w całości;
   ściągi i krokwie mają własne łączenie (`roof.splice`, nad podporą) i ta zmiana go nie rusza.
 - **Legary podłogi** zostają przy dotychczasowej opcji: w warsztacie łączenie ich nic nie daje.
 
 ## Risks / Trade-offs
+
+- Poza zakresem (stan sprzed zmiany, osobna zmiana): górny oczep nie zakłada się na narożnik
+  (ściany podłużne i szczytowe mają obie warstwy na tej samej długości), a w ścianach dłuższych
+  niż kantówka podwalina szczytu może mieć styk nad stykiem oczepu dolnego.
 
 - Więcej styków (w warsztacie +15) to więcej pracy i płaskowników na oczepach — dlatego
   przełącznik i remis na korzyść całych elementów.

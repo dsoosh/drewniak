@@ -167,22 +167,43 @@ test('long building staggers plate and batten joints and warns', () => {
 
 test('workshop plates are joined to save stock, joints on studs and staggered', () => {
   const ex = EXAMPLES.find((e) => e.id === 'warsztat');
-  const s = ex.make(), r = build(s), f = report(r, s).timber.find((t) => t.sec === 'f45');
-  assert.ok(f.count <= 57 && f.waste < 10000, `${f.count} szt., odpad ${f.waste}`);
+  const s = ex.make(), r = build(s), rep = report(r, s), f = rep.timber.find((t) => t.sec === 'f45');
+  assert.ok(f.count <= 58 && f.waste < 16000, `${f.count} szt., odpad ${f.waste}`);
   assert.ok(r.members.filter((m) => m.name === 'Ściąg').every((m) => m.len === 4000));
-  assert.ok(r.warnings.some((w) => /łączone z dwóch kawałków/.test(w)));
+  assert.ok(r.warnings.some((w) => /z dwóch kawałków/.test(w) && /2 rzędami gwoździ/.test(w)));
+  const splices = rep.extras.find((e) => /Płaskownik perforowany/.test(e.name));
+  assert.ok(splices && splices.qty === r.members.filter((m) => /Oczep \(/.test(m.name) && m.note.includes('styk')).length / 2);
+  const rim = r.members.filter((m) => m.name === 'Legar czołowy');
+  const rimJoint = Math.min(...rim.map((m) => m.len));   // y of the joint (pieces start at y = 0)
+  assert.ok(r.info.joistY.every((y) => rimJoint <= y - 1 || rimJoint >= y + 45 + 1), 'styk legaru czołowego na czole legara');
   for (const id of ['front', 'back', 'left', 'right']) {
-    const mine = r.members.filter((m) => m.wall === id);
-    const us = (m) => m.upoly.map(([u]) => u);
-    const studs = mine.filter((m) => !['plate', 'nog', 'header', 'sill'].includes(m.kind)).map((m) => Math.min(...us(m)) + 22.5);
-    const joints = mine.filter((m) => m.note.includes('styk na słupku')).map((m) => Math.min(...us(m))).filter((u) => u > (id === 'front' || id === 'back' ? 1 : 96));
-    if (id === 'left' || id === 'right') joints.push(2000);   // rim joist joint below
-    for (const j of joints) if (j !== 2000) assert.ok(studs.some((c) => Math.abs(c - j) < 0.5), `${id}: styk ${j} nie na słupku`);
-    for (let i = 0; i < joints.length; i++) for (let k = i + 1; k < joints.length; k++) assert.ok(Math.abs(joints[i] - joints[k]) > 600, `${id}: ${joints}`);
+    const mine = r.members.filter((m) => m.wall === id), us = (m) => m.upoly.map(([u]) => u);
+    const zb = r.info.zf + 45;
+    // full-height studs only: from the bottom plate up to the plates
+    const studs = mine.filter((m) => ['stud', 'king'].includes(m.kind) && Math.min(...m.upoly.map(([, v]) => v)) === zb).map((m) => Math.min(...us(m)) + 22.5);
+    const at = (name) => mine.filter((m) => m.name === name && m.note.includes('styk na słupku')).map((m) => Math.min(...us(m))).filter((u) => u > r.walls[id].A + 1);
+    const seams = [0, 1, 2, 3, 4].map((k) => r.walls[id].Us[0] + k * 1250);
+    for (const name of ['Podwalina ściany', 'Oczep (dolny)', 'Oczep (górny)', 'Podwalina szczytu']) for (const j of at(name)) {
+      assert.ok(studs.some((c) => Math.abs(c - j) < 0.5), `${id}: ${name} styk ${j} nie na pełnym słupku`);
+      assert.ok(seams.every((m) => Math.abs(m - j) >= 45), `${id}: ${name} styk ${j} na styku płyt`);
+    }
+    const apart = (p, q) => { for (const a of p) for (const b of q) assert.ok(Math.abs(a - b) > 600, `${id}: ${a} / ${b}`); };
+    apart(at('Oczep (dolny)'), at('Oczep (górny)'));
+    apart([...at('Oczep (dolny)'), ...at('Oczep (górny)')], at('Podwalina szczytu'));
+    if (id === 'left' || id === 'right') apart(at('Podwalina ściany'), [id === 'left' ? 4000 - rimJoint : rimJoint]);
+    for (const u of at('Oczep (górny)')) assert.ok(u - r.walls[id].A >= 1250 && r.walls[id].B - u >= 1250, `${id}: krótki górny oczep`);
   }
-  const off = build(ex.make() && (() => { const t = ex.make(); t.walls.splitPlates = false; return t; })());
+  const offState = ex.make();
+  offState.walls.splitPlates = false;
+  const off = build(offState);
   assert.ok(off.members.filter((m) => m.kind === 'plate' && m.wall === 'back').every((m) => m.len === 4000 || m.len === 2102));
   assert.equal(off.members.filter((m) => m.name === 'Legar czołowy').length, 2);
+});
+
+test('joined plate never meets over a door in the middle of the wall', () => {
+  const s = fresh((st) => { st.dims = { L: 4000, W: 2500 }; st.openings.front = [{ id: 'g', type: 'door', U: 1200, w: 1600, h: 2000, sill: 0 }]; });
+  const r = build(s), front = r.members.filter((m) => m.wall === 'front' && /Oczep \(/.test(m.name));
+  for (const m of front) for (const [u] of m.upoly) assert.ok(u <= 1200 - 45 + 0.5 || u >= 2800 + 45 - 0.5 || u === 0 || u === 4000, `styk ${u} nad bramą`);
 });
 
 test('shed plates stay whole when joining saves nothing', () => {

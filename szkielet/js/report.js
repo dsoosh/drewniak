@@ -73,6 +73,7 @@ export function report(res, s) {
   const rafterLines = res.info.rafterX.length;
   out.extras.push({ name: 'Łączniki krokwiowe (krokiew–oczep)', qty: rafters * 2 - (s.roof.type === 'gable' ? rafters : 0) + bearing.length * rafterLines, unit: 'szt.' });
   if (bearing.length) out.extras.push({ name: 'Kotwy podwaliny ściany nośnej do legarów', qty: bearing.reduce((t, p) => t + Math.ceil((p.b - p.a) / 1200) + 1, 0), unit: 'szt.' });
+  if (res.info.plateSplices) out.extras.push({ name: 'Płaskownik perforowany 40×300 na styki oczepów', qty: res.info.plateSplices, unit: 'szt.' });
   if (res.info.headerBrackets) out.extras.push({ name: 'Kątowniki pod nadproża między słupkami', qty: res.info.headerBrackets, unit: 'szt.' });
   const sp = res.info.splices || { rafters: 0, ties: 0, method: 'none' };
   const joints = sp.rafters + sp.ties;

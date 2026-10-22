@@ -27,7 +27,9 @@ export function build(s) {
   if (joined.members.length === whole.members.length) return whole;
   const bars = (r) => packBars(r.members.filter((m) => m.sec === 'f45').map((m) => ({ len: m.len })), s.stock.f45.len, s.kerf).units;
   if (bars(joined) >= bars(whole)) return whole;
-  joined.warnings.push('Oczepy, podwaliny i legary czołowe łączone z dwóch kawałków, żeby z kantówki nie zostawały ~2 m odpadu: styki na słupkach i nad belką, rozsunięte o pole; oczepy spinaj płaskownikiem (przełącznik w parametrach ścian).');
+  const what = [...joined.info.joined];
+  const list = what.length > 1 ? `${what.slice(0, -1).join(', ')} i ${what[what.length - 1]}` : what[0];
+  joined.warnings.push(`${list[0].toUpperCase()}${list.slice(1)} łączone z dwóch kawałków, żeby z kantówki nie zostawały ~2 m odpadu (przełącznik w parametrach ścian). Styki na słupkach i nad belką, rozsunięte o pole.${what.includes('oczepy') ? ' Na styku oczepu górną warstwę przybij do dolnej 2 rzędami gwoździ co 150 mm na 600 mm z każdej strony, płaskownik na wierzchu między krokwiami.' : ''}${what.includes('podwaliny') ? ' Każdy kawałek podwaliny min. 2 łącznikami, jeden 150–300 mm od styku.' : ''}`);
   return joined;
 }
 
@@ -36,7 +38,9 @@ function buildOnce(s, halve) {
   const out = { members: [], wallSheets: [], floorSheets: [], cover: [], checks: [], warnings: [], walls: {}, info: {} };
   // joints of joined plates per wall line (in U), kept apart by a stud bay
   out.info.halve = halve;
-  out.info.plateJoints = { front: [], back: [], left: [], right: [] };
+  out.info.joined = new Set();
+  out.info.plateSplices = 0;
+  out.info.plateJoints = Object.fromEntries(['front', 'back', 'left', 'right'].map((id) => [id, { rim: [], bottom: [], lower: [], upper: [], gable: [] }]));
   const a = (s.roof.pitch * Math.PI) / 180, tn = Math.tan(a), cs = Math.cos(a), sn = Math.sin(a);
   BEAM = SECTIONS[s.base.beamSec || 'b100'].h;
   RD = SECTIONS[s.roof.rafterSec || 'f45'].h;
@@ -132,10 +136,17 @@ function buildOnce(s, halve) {
   joistY.sort((p, q) => p - q);
   const beamCenters = beamX.map((x) => x + BEAM / 2);
   // rim joists across the ends carry the gable-wall plates; long joists butt into them
-  // joined: halved over the transverse beam it lies on; the gable wall above keeps its joints clear
-  const rimHalf = halve && W <= s.stock.f45.len && W > s.stock.f45.len / 2;
-  if (rimHalf) for (const id of ['left', 'right']) out.info.plateJoints[id].push(W / 2);
-  for (const x0 of [0, L - T]) for (const [y0, y1] of rimHalf ? [[0, W / 2], [W / 2, W]] : splitEven(0, W, s.stock.f45.len))
+  // joined: halved over the transverse beam it lies on, mid-way between the two joists nearest
+  // the middle (not at a joist end); the gable wall above keeps its plate joint clear of it
+  let rimRuns = splitEven(0, W, s.stock.f45.len);
+  if (halve && rimRuns.length === 1 && W > s.stock.f45.len / 2) {
+    const gaps = joistY.slice(1).map((y, i) => (joistY[i] + T + y) / 2).filter((c) => c >= 600 && c <= W - 600);
+    const c = gaps.length && gaps.reduce((p, q) => (Math.abs(q - W / 2) < Math.abs(p - W / 2) ? q : p));
+    if (c) { rimRuns = [[0, c], [c, W]]; out.info.joined.add('legary czołowe'); }
+  }
+  // wall U of the rim joints: left wall runs from y = W, right wall from y = 0
+  for (const [y] of rimRuns.slice(1)) { out.info.plateJoints.left.rim.push(W - y); out.info.plateJoints.right.rim.push(y); }
+  for (const x0 of [0, L - T]) for (const [y0, y1] of rimRuns)
     add({ kind: 'joist', sec: 'f45', len: y1 - y0, group: 'floor', name: 'Legar czołowy', note: y1 - y0 < W ? 'pod ścianą szczytową, styk nad belką' : 'pod ścianą szczytową', shape: box('xy', x0, y0, x0 + T, y1, BEAM, BEAM + D) });
   const joistRuns = chooseJoistSplit(T, L - T, beamCenters, s.stock.f45.len, s.floor.splitJoists, joistY.length, s.kerf);
   for (const y0 of joistY)
@@ -308,13 +319,12 @@ export function splitAtSupports(a, b, supports, max) {
   return out;
 }
 
-// Splits [a,b] in two on the support nearest its middle, both pieces ≥ 600 mm and the joint
+// Splits [a,b] in two on the support nearest its middle, both pieces ≥ `end` and the joint
 // more than `gap` from every joint in `avoid`; null when no support qualifies.
-function halveAt(a, b, supports, avoid, gap) {
-  const ok = supports.filter((c) => c >= a + 600 && c <= b - 600 && avoid.every((j) => Math.abs(c - j) > gap));
+function halveAt(a, b, supports, avoid, gap, end = 600) {
+  const ok = supports.filter((c) => c >= a + end && c <= b - end && avoid.every((j) => Math.abs(c - j) > gap));
   if (!ok.length) return null;
   const mid = (a + b) / 2, c = ok.reduce((p, q) => (Math.abs(q - mid) < Math.abs(p - mid) ? q : p));
-  avoid.push(c);
   return [[a, c], [c, b]];
 }
 
@@ -560,15 +570,27 @@ function frameWall(def, openings, extraStuds, s, out) {
     }
   }
 
-  // joined variant: a run that fits the stock but is longer than half of it is made of two pieces
-  const stock = s.stock.f45.len, joints = out.info.plateJoints[def.id] || [];
-  const halved = (runs, a, b, centers) => (out.info.halve && runs.length === 1 && b - a > stock / 2 && halveAt(a, b, centers, joints, step - 1)) || runs;
+  // Joined variant: a run that fits the stock but is longer than half of it is made of two
+  // pieces. Joints sit on full-height studs (never over a cripple or a stud under a header), off
+  // the vertical sheet seams (the sheet laps the joint), and apart from the joints of the layer
+  // touching this one: rim joist / bottom plate, lower / upper top plate, top plates / gable plate.
+  const stock = s.stock.f45.len, J = out.info.plateJoints[def.id] || { rim: [], bottom: [], lower: [], upper: [], gable: [] };
+  const sheetSeams = def.Us && (s.walls.sheathe || s.walls.sheatheIn) ? [...Array(Math.ceil((def.Us[1] - def.Us[0]) / SHEET_W) + 1)].map((_, k) => def.Us[0] + k * SHEET_W) : [];
+  const tall = verts.filter((v) => v[2] === zb + T && v[3] === ut).map((v) => v[0] + T / 2).filter((c) => sheetSeams.every((m) => Math.abs(c - m) >= T));
+  const halved = (runs, a, b, mine, others, end = 600) => {
+    if (!out.info.halve || runs.length !== 1 || b - a <= stock / 2) return runs;
+    const h = halveAt(a, b, tall, others.flat(), step - 1, end);
+    if (!h) return runs;
+    mine.push(h[0][1]);
+    out.info.joined.add(def.triangle ? 'podwaliny szczytów' : 'podwaliny');
+    return h;
+  };
   const centersAll = full.map((f) => f.u0 + T / 2);
-  // joined plates meet only over full-height studs, never over a cripple or a stud under a header
-  const tall = verts.filter((v) => v[2] === zb + T && v[3] === ut).map((v) => v[0] + T / 2);
+  const bottomName = def.triangle ? 'Podwalina szczytu' : 'Podwalina ściany';
   for (const [p, q] of segs) {
-    const base = splitAtSupports(p, q, centersAll, stock), runs = halved(base, p, q, tall);
-    for (const [x0, x1] of runs) push('plate', 'f45', rect(x0, x1, zb, zb + T), x1 - x0, 'Podwalina ściany', runs !== base ? 'płasko, styk na słupku' : 'płasko');
+    const base = splitAtSupports(p, q, centersAll, stock);
+    const runs = def.triangle ? halved(base, p, q, J.gable, [J.lower, J.upper]) : halved(base, p, q, J.bottom, [J.rim]);
+    for (const [x0, x1] of runs) push('plate', 'f45', rect(x0, x1, zb, zb + T), x1 - x0, bottomName, runs !== base ? 'płasko, styk na słupku' : 'płasko');
   }
 
   if (flat) {
@@ -579,7 +601,12 @@ function frameWall(def, openings, extraStuds, s, out) {
     // upper layer joints at least one stud bay away from the lower ones
     const upper0 = splitAtSupports(A, B, centers.filter((c) => lj.every((j) => Math.abs(c - j) > step - 1)), s.stock.f45.len);
     if (lj.length) out.warnings.push(`${name}: ściana dłuższa niż kantówka – oczepy i podwalina łączone na słupkach, styki rozsunięte; spinaj je płaskownikiem.`);
-    const lower = halved(lower0, A, B, tall), upper = halved(upper0, A, B, tall);
+    J.lower.push(...lj); J.upper.push(...upper0.slice(1).map(([x0]) => x0));
+    const lower = halved(lower0, A, B, J.lower, [J.upper, J.gable]);
+    // the upper layer ties the wall together: no short piece at its ends
+    const upper = halved(upper0, A, B, J.upper, [J.lower, J.gable], 2 * step);
+    if (lower !== lower0 || upper !== upper0) out.info.joined.add('oczepy');
+    out.info.plateSplices += lower.length + upper.length - 2;
     for (const [lvl, label, runs, base] of [[0, 'Oczep (dolny)', lower, lower0], [1, 'Oczep (górny)', upper, upper0]])
       for (const [x0, x1] of runs)
         push('plate', 'f45', rect(x0, x1, Tp - 2 * T + lvl * T, Tp - T + lvl * T), x1 - x0, label, runs !== base ? 'płasko, styk na słupku' : 'płasko');
